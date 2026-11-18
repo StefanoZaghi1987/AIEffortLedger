@@ -11,7 +11,22 @@ or a team.
 
 ## Status
 
-Phase 0: specification and prototype. There is no installable tool yet.
+Phase 0 (specification, prototype, validation) is complete. There is no installable tool yet.
+
+## Roadmap
+
+| Phase | Content |
+|---|---|
+| 0 | Glossary, specifications, ADRs, measurement prototype, validation — done |
+| 1 | Core: store, Claude Code adapter (also Claude Desktop), manual entries, scheduled ingestion, daily timesheet per project |
+| 2 | Attribution and reports: identity rules, work items, releases and milestones, periods, list-price cost, subscription division |
+| 3 | Coverage: Codex adapter, Claude Code plugin with skills, hooks |
+| 4 | Team: team export, merge, team reports |
+| 5 | Estimation: estimate-versus-actuals dataset and estimator |
+| 6 | Optional: OpenTelemetry ingestion, provider analytics import, human-activity tracker as a source |
+
+Each phase starts with the specification of the points that [docs/spec/metrics.md](docs/spec/metrics.md) lists under
+`To be confirmed` for it, and with an implementation plan.
 
 ## Documents
 
@@ -23,7 +38,7 @@ Phase 0: specification and prototype. There is no installable tool yet.
 | [docs/spec/ingestion.md](docs/spec/ingestion.md) | How sources reach the store |
 | [docs/adr](docs/adr) | Architecture decisions, one per file |
 | [docs/research](docs/research) | Point-in-time research |
-| [prototype](prototype) | Throw-away measurements on real logs |
+| [prototype](prototype) | Throw-away measurements on real logs, scenario tests (`python -I -m unittest discover -s prototype/tests`), and validation |
 
 ## Principles
 

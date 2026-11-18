@@ -121,7 +121,11 @@ figure depends on the parameter.
 
 ## To be confirmed
 
-- Minimum attention time of an isolated human signal (the prototype uses 1 minute).
+- Minimum attention time of an isolated human signal (the prototype uses 1 minute; from 30 to 120 seconds human time
+  changes by −2 % to +3 %, see [validation-2026-11.md](../research/validation-2026-11.md)).
+- Whether reports show an upper bound of human time next to the measured lower bound, and how it is defined (for
+  example signal gaps up to a longer idle gap, or the presence span between the first and the last human signal of a
+  day with long breaks removed): measured human time covers a median of about 20 % of the presence span.
 - Split rule for overlapping human time: proportional to the human signals of each session in the overlap, or equal
   parts; how the split nests when projects and work items are both split; whether activity classes have a meaning per
   project when the person works on one project while an agent runs on another. In the prototype data the overlap is

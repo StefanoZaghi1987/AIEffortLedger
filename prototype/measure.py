@@ -160,8 +160,9 @@ class FileResult:
                     self.versions[v] += 1
                     self.record_types[v].add(o.get("type"))
         rows.sort(key=lambda r: r[0])
-        open_since = last_agent = None
+        open_since = last_agent = last_event = None
         pending: dict[str, tuple] = {}  # tool use id -> (time, tool name, background)
+        orphans: dict[str, tuple] = {}  # calls pending when a turn went stale: matched, but keep no turn open
 
         def close():
             nonlocal open_since
@@ -175,15 +176,16 @@ class FileResult:
                 self.cwds[o["cwd"]] += 1
             if o.get("entrypoint"):
                 self.entrypoints[o["entrypoint"]] += 1
-            if open_since is not None and last_agent is not None and t - last_agent > STALE_OPEN_S:
+            if open_since is not None and last_event is not None and t - last_event > STALE_OPEN_S:
                 self.stale_turns += 1
+                orphans.update(pending)
                 pending.clear()
                 close()
             if kind == "assistant":
                 msg = o.get("message") or {}
                 if open_since is None:
                     open_since = t
-                last_agent = t
+                last_agent = last_event = t
                 for block in msg.get("content") or []:
                     if isinstance(block, dict) and block.get("type") == "tool_use":
                         inp = block.get("input") if isinstance(block.get("input"), dict) else {}
@@ -206,7 +208,7 @@ class FileResult:
                 if results:
                     pd = o.get("permissionDecision") or {}
                     for b in results:
-                        call = pending.pop(b.get("tool_use_id"), None)
+                        call = pending.pop(b.get("tool_use_id"), None) or orphans.pop(b.get("tool_use_id"), None)
                         if call is None:
                             continue
                         started, name, background = call
@@ -216,6 +218,7 @@ class FileResult:
                             self.fg_waits.append((started, t))
                     if open_since is None:
                         open_since = t
+                    last_event = t
                 elif not self.is_subagent and is_human_prompt(o):
                     if last_agent is not None:
                         self.prompt_latency.append((last_agent, t))
@@ -223,12 +226,13 @@ class FileResult:
                     close()
                     self.human_prompts.append(t)
                     self.prompt_uuids.add(o.get("uuid"))
-                    open_since = t
+                    open_since = last_event = t
                 else:
                     if not pending:
                         close()
                     if open_since is None:
                         open_since = t
+                    last_event = t
             elif kind == "system" and o.get("subtype") == "turn_duration":
                 self.turn_duration_ms += o.get("durationMs") or 0
             elif kind == "system" and o.get("subtype") == "away_summary":
@@ -319,6 +323,30 @@ def human_time(files, gap_s, **kw):
 
 # ---------------------------------------------------------------- report
 
+def metrics(files: list[FileResult], gap_s: float) -> dict:
+    """Agent time, blocked time, human time, and activity classes of a set of transcript files (seconds)."""
+    working = {id(f): subtract(f.turns, f.decisions + f.fg_waits) for f in files}
+    working_union = union([x for iv in working.values() for x in iv])
+    blocked_union = union([x for f in files for x in f.decisions])
+    h = human_time(files, gap_s)
+    sup = total(intersect(h, working_union))
+    return dict(
+        working=working,
+        working_union=working_union,
+        blocked_union=blocked_union,
+        human=h,
+        agent_time=sum(total(x) for x in working.values()),
+        classes=dict(person_only=total(h) - sup, supervised=sup, unattended=total(working_union) - sup,
+                     blocked=total(subtract(subtract(blocked_union, working_union), h))),
+        union_all=total(h + working_union + blocked_union),
+    )
+
+
+def read_roots(roots: list[Path]) -> list[FileResult]:
+    return [FileResult(Path(p), root).read()
+            for root in roots for p in sorted(glob.glob(str(root / "**" / "*.jsonl"), recursive=True))]
+
+
 def hours(seconds: float) -> str:
     return f"{seconds / 3600:.1f}"
 
@@ -330,10 +358,7 @@ def main() -> None:
     ap.add_argument("--days", type=int, help="only the last N days")
     a = ap.parse_args()
     roots = a.root or default_roots()
-    files = []
-    for root in roots:
-        for p in glob.glob(str(root / "**" / "*.jsonl"), recursive=True):
-            files.append(FileResult(Path(p), root).read())
+    files = read_roots(roots)
     if a.days:
         cutoff = dt.datetime.now().timestamp() - a.days * 86400
         files = [f for f in files if any(t >= cutoff for t in f.human_prompts + [s for s, _ in f.turns])]
@@ -349,13 +374,12 @@ def main() -> None:
         repo_folders[repo].add(folder)
 
     # agent time and blocked time, per agent
-    working = {id(f): subtract(f.turns, f.decisions + f.fg_waits) for f in files}
+    M = metrics(files, REFERENCE_GAP_MIN * 60)
+    working, working_union, blocked_union = M["working"], M["working_union"], M["blocked_union"]
     turn_sum = sum(e - s for f in files for s, e in f.turns)
-    agent_sum = sum(total(x) for x in working.values())
+    agent_sum = M["agent_time"]
     main_sum = sum(total(working[id(f)]) for f in main_files)
-    working_union = union([x for iv in working.values() for x in iv])
     blocked = [x for f in files for x in f.decisions]
-    blocked_union = union(blocked)
     fg_wait = sum(total(f.fg_waits) for f in files)
     turn_duration_s = sum(f.turn_duration_ms for f in main_files) / 1000
     files_with_td = [f for f in main_files if f.turn_duration_ms]
@@ -367,11 +391,7 @@ def main() -> None:
         human[g] = dict(A=total(human_time(files, g * 60, responses=False)),
                         B=total(human_time(files, g * 60, signal_gaps=False)),
                         U=total(human_time(files, g * 60)))
-    H = human_time(files, REFERENCE_GAP_MIN * 60)
-    sup = total(intersect(H, working_union))
-    classes = dict(person_only=total(H) - sup, supervised=sup, unattended=total(working_union) - sup,
-                   blocked=total(subtract(subtract(blocked_union, working_union), H)))
-    all_union = total(H + working_union + blocked_union)
+    H, classes, all_union = M["human"], M["classes"], M["union_all"]
 
     # parallel human time across projects
     per_repo_h = collections.defaultdict(list)
