@@ -20,7 +20,7 @@ Phase 0 (specification, prototype, validation, review) is complete. There is no 
 | 0 | Glossary, specifications, ADRs, measurement prototype, validation, review — done |
 | 1 | Core: store, Claude Code adapter (also Claude Desktop), manual entries, timesheet entries, identity rules, split rule, scheduled ingestion, daily timesheet per project |
 | 2 | Attribution and reports: work items, releases and milestones, periods, declared usage, list-price cost, subscription division |
-| 3 | Coverage: Codex adapter, Claude Code plugin with skills, hooks; integration for other agent tools (open: an MCP server over the command line) |
+| 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (open: an MCP server over the command line, ingestion of events that other programs write in the normalized form); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
 | 4 | Team: team export, merge, team reports |
 | 5 | Estimation: estimate-versus-actuals dataset and estimator |
 | 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |

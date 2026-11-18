@@ -56,6 +56,9 @@ exist resolve through identity rules in the configuration; otherwise their event
   recognizes sessions that an orchestrator drives and the session that started them.
 - Whether a headless prompt that a person types in a terminal (for example a single `claude -p` command) counts as a
   human signal, and how the adapter can tell it from a script.
+- Whether one adapter reads events that other programs (agent tools, orchestrators, converters written by a member of
+  a team) write directly in the form of [event-schema.md](event-schema.md), and how it rejects fields outside the
+  schema, so that a new agent tool needs no adapter inside the ledger.
 - Whether a folder that no longer exists resolves through its nearest existing parent folder (for example a worktree
   inside its repository), with the result marked as inferred.
 - Whether setup advises a longer retention period where an agent tool allows it (for Claude Code,

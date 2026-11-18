@@ -118,5 +118,3 @@ counts in the adapter.
   edit tool (whole-file write, multiple edits, notebook edit, patch formats of other agent tools).
 - Which source has precedence for each kind when two sources record the same session (for example hooks for human
   signals, native logs for token usage), and how the ledger recognizes that two sources record the same session.
-- Which line of a response gives the timestamp of an `agent_output`: this schema says the last line, the prototype uses
-  the first; the first adapter confirms which instant matches the end of the response.

@@ -12,13 +12,16 @@
 - Open points live in the `## To be confirmed` section of the spec they concern. They close by deletion when the owner
   rules: the ruling becomes a sentence in the body or an ADR.
 - `docs/adr/`: one decision per file; only for decisions that are hard to reverse, surprising, and a real trade-off.
-  After the first commit of an ADR, only its status line changes.
-- `docs/research/`: dated, point-in-time notes; ratios only, never personal absolute values or folder names.
+  After the first commit of an ADR, only its status line changes, except the removal of private data (see Privacy),
+  which never changes the decision.
+- `docs/research/`: dated, point-in-time notes; ratios only.
 - A divergence between documentation and code is flagged, not resolved silently: one dated line in
   `~/.claude/escalations.md` and an item in the `To be confirmed` section of the spec.
 
 ## Privacy
 
+- The repository is public. No tracked file holds personal absolute values, real folder names, or internal project
+  names; examples use neutral names such as `D:\Work\Product`.
 - Never copy prompt, response, tool input, or code text out of transcripts, also not into tests or fixtures.
 - Personal measurements go only to `prototype/out/`, which git ignores.
 - Never run git inside a folder taken from a transcript; read the `.git` files instead (ADR 0004).

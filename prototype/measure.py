@@ -203,6 +203,7 @@ class FileResult:
                                   cache_write_5m=w5, cache_write_1h=w1, cache_read=u.get("cache_read_input_tokens", 0) or 0)
                     key = (msg.get("id"), o.get("requestId"))
                     rec = self.tokens.setdefault(key, dict(model=model, t=t, counts=dict.fromkeys(counts, 0)))
+                    rec["t"] = max(rec["t"], t)
                     for c, n in counts.items():
                         rec["counts"][c] = max(rec["counts"][c], n)
             elif kind == "user":
