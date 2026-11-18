@@ -188,16 +188,36 @@ class Subagents(unittest.TestCase):
 
 
 class Parallel(unittest.TestCase):
-    def test_overlap_counts_once_and_gaps_stay_inside_sessions(self):
+    def test_signals_of_parallel_sessions_form_one_stream(self):
         sc = Scenario()
         sc.session("projA", "a", [prompt(at(10, 14, 0)), prompt(at(10, 14, 8)), prompt(at(10, 15, 0))])
         sc.session("projB", "b", [prompt(at(10, 14, 4)), prompt(at(10, 14, 12)), prompt(at(10, 15, 6))])
         files = sc.files()
-        h = m.human_time(files, GAP)
-        # 14:00-14:08 and 14:04-14:12 merge to 12 min; 15:00 and 15:06 are in different sessions: 1 + 1
-        self.assertEqual(minutes(m.total(h)), 14)
-        per_session = sum(m.total(m.human_intervals(f, GAP)) for f in files)
-        self.assertEqual(minutes(per_session), 18)
+        # one stream 14:00, 14:04, 14:08, 14:12 (12 min) and 15:00, 15:06 (6 min); an instant counts once
+        self.assertEqual(minutes(m.total(m.human_time(files, GAP))), 18)
+        sc.tmp.cleanup()
+
+    def test_alternating_sessions_keep_the_person_present(self):
+        sc = Scenario()
+        sc.session("projA", "a", [prompt(at(10, 14, 0)), prompt(at(10, 14, 12))])
+        sc.session("projB", "b", [prompt(at(10, 14, 6)), prompt(at(10, 14, 18))])
+        files = sc.files()
+        self.assertEqual(minutes(m.total(m.human_time(files, GAP))), 18)  # gaps of 6 min across sessions
+        per_session = sum(m.total(m.human_time([f], GAP)) for f in files)
+        self.assertEqual(minutes(per_session), 4)  # gaps of 12 min inside each session: four isolated signals
+        sc.tmp.cleanup()
+
+
+class Invocation(unittest.TestCase):
+    def test_prompts_of_a_programmatic_session_are_not_human_signals(self):
+        sc = Scenario()
+        records = [prompt(at(10, 2, 0)), assistant(at(10, 2, 5)), prompt(at(10, 2, 6)), assistant(at(10, 2, 9))]
+        for r in records:
+            r["entrypoint"] = "sdk-cli"
+        sc.session("proj", "s1", records)
+        M = m.metrics(sc.files(), GAP)
+        self.assertEqual(minutes(m.total(M["human"])), 0)
+        self.assertEqual(minutes(M["classes"]["unattended"]), 8)  # turns 02:00-02:05 and 02:06-02:09
         sc.tmp.cleanup()
 
 
