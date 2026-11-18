@@ -1,0 +1,14 @@
+# Prototype outputs contain personal measurements
+prototype/out/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Local stores, wherever a person places them inside the repository
+*.ledger.sqlite
+*.ledger.sqlite-*
