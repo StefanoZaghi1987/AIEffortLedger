@@ -145,7 +145,7 @@ def main() -> None:
     M = m.metrics(files, GAP)
     signals = collections.defaultdict(list)
     for f in files:
-        for t in f.human_prompts + [b for _, b in f.decisions] + f.enqueues:
+        for t in m.signals(f):
             signals[dt.datetime.fromtimestamp(t).date().isoformat()].append(t)
     human_by_day = m.by_local_day(M["human"])
     agent_by_day = m.by_local_day(M["working_union"])

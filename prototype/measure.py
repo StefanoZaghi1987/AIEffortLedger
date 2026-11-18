@@ -8,6 +8,7 @@ Usage: python -I prototype/measure.py [--root DIR ...] [--out DIR] [--days N]
 from __future__ import annotations
 
 import argparse
+import bisect
 import collections
 import datetime as dt
 import glob
@@ -25,6 +26,7 @@ STALE_OPEN_S = 4 * 3600
 DECISION_TOOLS = {"AskUserQuestion", "ExitPlanMode"}
 AGENT_TOOLS = {"Agent", "Task"}
 NON_HUMAN_TAGS = {"task-notification", "local-command-stdout", "local-command-caveat", "system-reminder"}
+PROGRAMMATIC_ENTRYPOINTS = {"sdk-cli", "sdk-ts", "sdk-py"}
 
 
 def default_roots() -> list[Path]:
@@ -144,6 +146,7 @@ class FileResult:
         self.stale_turns = 0
         self.away = 0
         self.prompt_uuids: set = set()
+        self.interactive = True
 
     def read(self) -> "FileResult":
         rows = []
@@ -200,6 +203,7 @@ class FileResult:
                                   cache_write_5m=w5, cache_write_1h=w1, cache_read=u.get("cache_read_input_tokens", 0) or 0)
                     key = (msg.get("id"), o.get("requestId"))
                     rec = self.tokens.setdefault(key, dict(model=model, t=t, counts=dict.fromkeys(counts, 0)))
+                    rec["t"] = max(rec["t"], t)
                     for c, n in counts.items():
                         rec["counts"][c] = max(rec["counts"][c], n)
             elif kind == "user":
@@ -242,6 +246,8 @@ class FileResult:
                 if isinstance(c, str) and c.strip() and not c.lstrip().startswith("<"):
                     self.enqueues.append(t)
         close()
+        main_entry = self.entrypoints.most_common(1)
+        self.interactive = not (main_entry and main_entry[0][0] in PROGRAMMATIC_ENTRYPOINTS)
         return self
 
 
@@ -304,21 +310,30 @@ def repo_identity(cwd: str) -> str:
 
 # ---------------------------------------------------------------- human time (docs/spec/metrics.md)
 
-def human_intervals(f: FileResult, gap_s: float, signal_gaps: bool = True, responses: bool = True):
-    """Human time of one session: signal gaps, response intervals, minimum attention for isolated signals."""
-    signals = sorted(f.human_prompts + [b for _, b in f.decisions] + f.enqueues)
+def signals(f: FileResult) -> list[float]:
+    """Human signals of one file; a session started by a script or the SDK has none."""
+    if not f.interactive:
+        return []
+    return f.human_prompts + [b for _, b in f.decisions] + f.enqueues
+
+
+def human_time(files, gap_s, signal_gaps: bool = True, responses: bool = True):
+    """Human time of a person: signal gaps over one stream of the signals of all files, response intervals inside
+    each session, minimum attention for isolated signals."""
+    stream = sorted(t for f in files for t in signals(f))
     iv = []
     if signal_gaps:
-        iv += [(a, b) for a, b in zip(signals, signals[1:]) if b - a <= gap_s]
+        iv += [(a, b) for a, b in zip(stream, stream[1:]) if b - a <= gap_s]
     if responses:
-        iv += [(a, b) for a, b in f.prompt_latency + f.decisions if b - a <= gap_s]
+        iv += [(a, b) for f in files if f.interactive for a, b in f.prompt_latency + f.decisions if b - a <= gap_s]
     iv = union(iv)
-    iv += [(t - MIN_ATTENTION_S, t) for t in signals if not any(s <= t <= e for s, e in iv)]
-    return union(iv)
+    starts = [s for s, _ in iv]
 
+    def covered(t):
+        i = bisect.bisect_right(starts, t) - 1
+        return i >= 0 and t <= iv[i][1]
 
-def human_time(files, gap_s, **kw):
-    return union([x for f in files for x in human_intervals(f, gap_s, **kw)])
+    return union(iv + [(t - MIN_ATTENTION_S, t) for t in stream if not covered(t)])
 
 
 # ---------------------------------------------------------------- report
@@ -393,11 +408,19 @@ def main() -> None:
                         U=total(human_time(files, g * 60)))
     H, classes, all_union = M["human"], M["classes"], M["union_all"]
 
-    # parallel human time across projects
-    per_repo_h = collections.defaultdict(list)
+    # parallel human time across projects; per-session human time for comparison with the person-level stream
+    gap = REFERENCE_GAP_MIN * 60
+    repo_files = collections.defaultdict(list)
     for f in files:
-        per_repo_h[folder_repo.get(f.folder, "unknown")] += human_intervals(f, REFERENCE_GAP_MIN * 60)
+        repo_files[folder_repo.get(f.folder, "unknown")].append(f)
+    per_repo_h = {repo: human_time(fs, gap) for repo, fs in repo_files.items()}
     sum_per_repo = sum(total(v) for v in per_repo_h.values())
+    sessions = collections.defaultdict(list)
+    for f in files:
+        sessions[(f.root, f.folder, f.session_id)].append(f)
+    per_session_h = total(union([x for fs in sessions.values() for x in human_time(fs, gap)]))
+    programmatic = [f for f in main_files if not f.interactive]
+    all_prompts = sum(len(f.human_prompts) for f in main_files)
 
     # duplicates from fork or resume
     key_sessions = collections.defaultdict(set)
@@ -429,9 +452,9 @@ def main() -> None:
         for v, ts in f.record_types.items():
             types_by_version[v] |= ts
 
-    n_prompts = sum(len(f.human_prompts) for f in files)
-    n_dec = sum(len(f.decisions) for f in files)
-    n_enq = sum(len(f.enqueues) for f in files)
+    n_prompts = sum(len(f.human_prompts) for f in files if f.interactive)
+    n_dec = sum(len(f.decisions) for f in files if f.interactive)
+    n_enq = sum(len(f.enqueues) for f in files if f.interactive)
     all_t = [s for f in files for s, _ in f.turns]
     first = dt.datetime.fromtimestamp(min(all_t)).date() if all_t else None
     last = dt.datetime.fromtimestamp(max(all_t)).date() if all_t else None
@@ -461,8 +484,13 @@ def main() -> None:
       f"{hours(classes['blocked'])} |\n")
     w(f"Check: union of human, agent, and blocked time {hours(all_union)}; sum of classes {hours(sum(classes.values()))}.\n")
     w("## Parallel human time across projects\n")
-    w(f"- Sum of per-project human time {hours(sum_per_repo)} vs union {hours(total(H))}: overlap "
-      f"{hours(sum_per_repo - total(H))} ({(sum_per_repo - total(H)) / max(total(H), 1) * 100:.1f} %)\n")
+    w(f"- Sum of per-project human time {hours(sum_per_repo)} vs person-level total {hours(total(H))}: difference "
+      f"{hours(sum_per_repo - total(H))} ({(sum_per_repo - total(H)) / max(total(H), 1) * 100:.1f} %); the total "
+      f"also holds signal gaps between sessions of different projects, which the split rule divides")
+    w(f"- Person-level human time / per-session human time: {total(H) / max(per_session_h, 1):.3f}")
+    w(f"- Sessions with a programmatic entry point: {len(programmatic)} of {len(main_files)}; prompts they hold: "
+      f"{sum(len(f.human_prompts) for f in programmatic) / max(all_prompts, 1) * 100:.1f} % of all prompts, "
+      f"not counted as human signals\n")
     w("## Project identity\n")
     w("| Repository identity | Log folders |\n|---|---|")
     for repo, folders in sorted(repo_folders.items(), key=lambda x: -len(x[1])):

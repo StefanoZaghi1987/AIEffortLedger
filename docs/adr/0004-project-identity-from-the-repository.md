@@ -1,13 +1,13 @@
 ---
-status: accepted
+status: superseded in part by 0009
 date: 2026-11-18
 ---
 
 # A project is identified by its repository, not by the launch folder
 
 Agent tools file their logs by the folder from which they were started, so one repository appears under several
-names: a subfolder, a second clone, or a worktree each get their own log folder (for example, a launch from `D:\GammaBot` and one
-from `D:\GammaBot\GammaBot` produce two log folders). The ledger identifies a project by the normalized URL of its remote, or by
+names: a subfolder, a second clone, or a worktree each get their own log folder (for example, a launch from `D:\Work\Product` and one
+from `D:\Work\Product\Product` produce two log folders). The ledger identifies a project by the normalized URL of its remote, or by
 the hash of its root commit when no remote exists, and resolves worktrees to their repository through the common git
 directory. Folders without git map to projects through explicit rules in the configuration. The branch is a hint for
 the work item, not its definition.
