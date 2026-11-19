@@ -53,10 +53,11 @@ every answer, so a scheduler, a hook, or a script never waits for a person.
 | 0 | the command completed |
 | 1 | the command stopped with an error and wrote no partial line; events that it appended before the error stay, complete. For example: a configuration file that the ledger cannot read, an instant without a local day, a lock not available within 10 minutes, or a development version that may not write to the store ([architecture.md](architecture.md) › Runtime) |
 | 2 | wrong use: an unknown command or option, or a value in a wrong format |
-| 3 | the command completed, but some figures are not complete: a configuration error, a broken line in a segment, events of a newer schema version that the ledger leaves out ([event-schema.md](event-schema.md) › Encoding), or, for the ingestion that finds them, events lost because a native log was deleted before ingestion |
+| 3 | the command completed, but some figures are not complete: a configuration error, a broken line in a segment, events of a newer schema version that the ledger leaves out ([event-schema.md](event-schema.md) › Encoding), held-back events of a day that its figures cover, or, for the ingestion that finds them, events lost because a native log was deleted before ingestion |
 
 A warning that does not make a figure incomplete, such as an unknown tool name, a declared value lower than the
-measured value, or two timesheet confirmations of a day from two machines, keeps the exit code 0.
+measured value, or two timesheet confirmations of a day from two machines, keeps the exit code 0. `timesheet confirm`
+also keeps it when it warns about held-back events of the day, because its entries are the declaration of the person.
 
 ## Commands
 
@@ -64,7 +65,7 @@ measured value, or two timesheet confirmations of a day from two machines, keeps
 |---|---|
 | `setup` | prepare the ledger on a machine (see Setup) |
 | `schedule show\|create\|remove` | show, create (with `--time <HH:MM>`, default 12:00), or remove the scheduled ingestion ([ingestion.md](ingestion.md) › Frequency); `schedule create` replaces an entry of the ledger that already exists, and `schedule remove` without an entry completes with the warning `no_schedule_entry` |
-| `ingest` | run an ingestion; show the number of new events of each source |
+| `ingest` | run an ingestion; show the number of new events of each folder of native logs |
 | `machine label <text>` | change the label of the machine in its store metadata |
 | `config show` | show the value of each parameter and dated fact with the layer that gives it, and every configuration error |
 | `config add <entry> <options>` | append an entry to the person configuration (see Configuration entries) |
@@ -135,8 +136,8 @@ one timesheet confirmation with all the entries of the day, shows them, and warn
 value is lower than its measured human time ([metrics.md](metrics.md) › Declared values). A new confirmation of the same
 day replaces the earlier one as a whole, and names, in `replaces`, the latest confirmation of the day that the machine
 has. `--set` can name a project or a work item that the proposal does not hold. `--note` gives its text to every entry.
-When the values of `--set` are more than `--total`, or the day is after today, the command stops with exit code 1. For
-today, the command warns when the machine holds back events of the day that are not complete yet. The command warns when
+When the values of `--set` are more than `--total`, or the day is after today, the command stops with exit code 1. The
+command warns when the machine holds back events of the day that are not complete yet. The command warns when
 the confirmation that it replaces has a later `timestamp` than the instant of the machine, because the clocks of two
 machines differ and the latest confirmation is the one with the latest `timestamp`.
 
@@ -158,10 +159,10 @@ the consent of the person. `--corrected-version` is not accepted with `--reason 
 time of the day, and, for each project and work item and for the unattributed time, three values: the measured human
 time, the measured human time with manual entries, and the declared value of a declared day
 ([metrics.md](metrics.md) › Declared values). Every command that shows the human time of a day — `report timesheet`,
-`report day`, `timesheet <day>` — also shows, for a measured day, the human time at idle gaps of 5, 10, and 15 minutes
-and at the idle gap in use ([metrics.md](metrics.md) › Uncertainty), and the share of human signals from sessions of
-unknown invocation; each project and work item shows the share of its human time and of its agent time that rests on an
-inferred repository identity. Warnings and configuration errors come before the table.
+`report day`, `timesheet <day>` — also shows the share of human signals from sessions of unknown invocation and, for a
+measured day, the human time at idle gaps of 5, 10, and 15 minutes and at the idle gap in use
+([metrics.md](metrics.md) › Uncertainty); each project and work item shows the share of its human time and of its agent
+time that rests on an inferred repository identity. Warnings and configuration errors come before the table.
 
 A report of a period that a frozen report holds also shows, for each day, project, and work item, the difference
 against the frozen figures, and the report parameters, rules, and dated facts that changed (see Frozen reports).
@@ -205,7 +206,7 @@ the program holds an English and an Italian text for each, and the codes of Phas
 | `fork_original_unknown` | both sessions of a fork, or neither, hold records of their own; the order of the identifiers decides |
 | `shallow_clone` | a repository has no root commit that the ledger can reach |
 | `held_back_events` | a report of a day shows a session of which this machine holds events back because they are not complete yet |
-| `manual_entry_overlap` | a manual entry overlaps measured human time or another manual entry |
+| `manual_entry_overlap` | an entry in mode `overlapping` overlaps measured human time of another project or work item, or an entry in mode `additional` overlaps measured human time |
 | `identity_rule_conflict` | two identity rules match an event and neither is more specific (configuration error) |
 | `category_rule_conflict` | two category rules match a tool name and neither is more specific (configuration error) |
 | `project_name_conflict` | the person configuration gives one name to two project identifiers (configuration error) |

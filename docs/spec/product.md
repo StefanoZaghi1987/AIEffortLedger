@@ -11,7 +11,7 @@ attributes them to projects and work items, proposes a daily timesheet from meas
 and, from Phase 2, computes cost at report time.
 
 Usage tools that exist count tokens and cost; none of them separates human time from agent time, divides time among
-projects, or takes declared values ([sources-2026-11.md](../research/sources-2026-11.md)). A timesheet written from
+projects, or takes manual entries ([sources-2026-11.md](../research/sources-2026-11.md)). A timesheet written from
 memory is not reliable: in a controlled trial, persons who wrote code believed that agents made them faster when the
 measurement showed that they were slower (same note).
 

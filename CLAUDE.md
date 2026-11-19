@@ -14,7 +14,8 @@
 - `docs/adr/`: one decision per file; only for decisions that are hard to reverse, surprising, and a real trade-off.
   Once an ADR is on `master`, only its status line changes, except the removal of private data (see Privacy), which
   never changes the decision. On a feature branch, an ADR that is not yet on `master` is edited directly.
-- `docs/research/`: dated, point-in-time notes; ratios only.
+- `docs/research/`: dated, point-in-time notes; ratios only, except the run times and the processor of the benchmark
+  ([architecture.md](docs/spec/architecture.md) › Tests), which measures invented data.
 - A divergence between documentation and code is flagged, not resolved silently: one dated line in
   `~/.claude/escalations.md` and an item in the `To be confirmed` section of the spec.
 

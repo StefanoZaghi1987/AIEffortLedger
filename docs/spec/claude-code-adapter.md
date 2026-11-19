@@ -35,13 +35,16 @@ The adapter declares the retention setting of each of its agent tools, which set
 | Agent tool | Setting | Default |
 |---|---|---|
 | `claude-code` | `cleanupPeriodDays` | 30 days |
-| `claude-desktop` | `desktopSessionCleanupPeriodDays` | no age limit |
+| `claude-desktop` | `desktopSessionCleanupPeriodDays` (Claude Code 2.1.248 and later) | no age limit |
 
 Both settings live in the settings files of Claude Code: `cleanupPeriodDays` in the user, project, local, and managed
 settings file, `desktopSessionCleanupPeriodDays` in the user and managed settings file. `cleanupPeriodDays` has a
-minimum of 1 day and cannot be off: the value `0` fails validation. The native logs of `claude-desktop` are kept past
-`cleanupPeriodDays`; a transcript of Claude Desktop or Cowork is deleted only when it is older than both limits, and
-when managed settings set `cleanupPeriodDays`, that period applies to those transcripts as well.
+minimum of 1 day and cannot be off: the value `0` fails validation; `desktopSessionCleanupPeriodDays` has `0` as its
+default, which sets no age limit. A transcript of Claude Desktop or Cowork is not deleted by the `cleanupPeriodDays`
+of the user, project, or local settings file: Claude Code deletes it only when it is older than both
+`desktopSessionCleanupPeriodDays` and `cleanupPeriodDays`, so the longer of the two limits wins. When managed settings
+set `cleanupPeriodDays`, or the HIPAA configuration applies, Claude Code deletes these transcripts after
+`cleanupPeriodDays` alone and ignores `desktopSessionCleanupPeriodDays`.
 
 ## Session fields
 

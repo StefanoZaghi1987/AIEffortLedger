@@ -335,7 +335,9 @@ _Italian_: evento
 _Avoid_: record (for an event), log line, block
 
 **Native identifier**:
-The identifier that a source gives to one of its records, unique across the sessions of that source.
+The identifier that a source gives to one of its records, unique across the sessions of that source; a forked session
+starts with copies of the records of its original, a copy keeps the native identifier of its record, and the copies
+are one event.
 _Italian_: identificativo nativo
 
 **Event identifier**:
@@ -661,3 +663,13 @@ _Italian_: classe di riferimento
 A run of `tests/benchmark.py` that writes invented native logs and times the first ingestion and a daily timesheet of
 one month; a person runs it by hand before each release.
 _Italian_: benchmark
+
+**Scenario**:
+A short sequence of invented events with its figures computed by hand, which a test of the core compares with the
+figures that the core computes; every rule of the metrics has at least one.
+_Italian_: scenario
+
+**Fixture**:
+A small native log, store, or expected output written by hand with invented text, which a test reads; the tests of an
+adapter hold one fixture for each row of its table of records.
+_Italian_: fixture

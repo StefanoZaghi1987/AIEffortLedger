@@ -35,7 +35,7 @@ derives them.
 | `schema_version` | yes | Version of this schema used to write the event, a whole number; the first release writes `1` |
 | `source` | yes | Stable identifier of the writer: the adapter, for example `claude-code-jsonl`, or `ledger` for events that a command writes; part of the key |
 | `source_format` | for events from native sources | Native format version that the adapter recognized, for example the version of the agent tool; not part of the key |
-| `native_id` | when the source gives one | Identifier of the event in the source, unique across sessions of that source |
+| `native_id` | when the source gives one | Identifier of the event in the source, unique across sessions of that source; the copies of a record that a forked session makes are one event (see Keys and invariants) |
 | `session_id` | for events of a session | Session identifier given by the source |
 | `event_uid` | yes | Identifier of the event within its session, stable across re-ingestion; the native identifier when the source gives one |
 | `timestamp` | yes | UTC instant of the event; for an `agent_output` written on several lines, the instant of the last line; for an event that a command writes, the instant at which the command writes it |
@@ -104,10 +104,10 @@ A new schema version only adds fields, kinds, or values of a field; it never cha
 kind, or value (ADR 0023). A reader therefore reads an event of a newer schema version with the fields that it knows and
 ignores the other fields. It leaves out an event of a kind that it does not know, or with a value that it does not know
 in a field that it knows; such a line is not a broken line. The values that this rule checks are those of the fields
-with a fixed set of values — `kind`, `actor`, `invocation`, `tool_category`, `input_origin`, `decision_type`,
-`manual_mode`, `size_basis`, `repo_basis`, and `purge_reason`; the keys of the open sets — token categories, request
-types, and price factors — pass through as they are. The report warns that events of a newer version of the
-ledger exist, asks to update the ledger, and completes with the exit code for incomplete figures
+with a fixed set of values — `kind`, `actor`, `invocation`, `subagent_mode`, `tool_category`, `input_origin`,
+`decision_type`, `manual_mode`, `size_basis`, `repo_basis`, and `purge_reason`; the keys of the open sets — token
+categories, request types, and price factors — pass through as they are. The report warns that events of a newer
+version of the ledger exist, asks to update the ledger, and completes with the exit code for incomplete figures
 ([command-line.md](command-line.md) › Exit codes).
 
 | Value | Encoding |
@@ -134,8 +134,9 @@ ledger exist, asks to update the ledger, and completes with the exit code for in
   (`ledger`, `event_uid`), with a random `event_uid` made at creation. Ingesting an event twice leaves one event, also
   after an adapter starts to recognize a new `source_format`. Event keys have an order, which tie-breaks use: by
   `source`, then `session_id`, then `event_uid`, each compared as text, and an absent part comes before every text.
-- The identity of an event comes only from facts that the source gives about identity, never from the line number of a
-  record in a file or from its content (ADR 0023). An event takes the identifier of the record it comes from; when one
+- The identity of an event comes only from facts that the source gives about identity, never from facts that can
+  change while the record stays the same: not from the number of the line of the record in its file, and not from a
+  hash of its text (ADR 0023). An event takes the identifier of the record it comes from; when one
   record gives more than one event, the kind of the event goes before the identifier, for example `decision:` and the
   identifier of the tool use. An event from a record without an identifier gets as `event_uid` its kind, its timestamp,
   and its position among the records of its session with the same kind and timestamp, in the order of the files of the

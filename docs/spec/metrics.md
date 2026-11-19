@@ -233,9 +233,9 @@ project is an upper bound.
 ## Reproducibility
 
 Every report records the report parameters, the rules, and the dated facts it used (idle gap, stale limit, minimum
-attention time, headless prompts, first day of the week, timesheet granularity; identity rules, category rules;
-time-zone history, day start hours, price tables), the version of the ledger and of the time-zone database, and the
-state of the store it read ([architecture.md](architecture.md) › Report record). A person freezes a report when they
+attention time, headless prompts, first day of the week, timesheet granularity, language; identity rules, category
+rules; time-zone history, day start hours, price tables), the version of the ledger and of the time-zone database, and
+the state of the store it read ([architecture.md](architecture.md) › Report record). A person freezes a report when they
 give it to someone: the report keeps exactly the document that the person gives, and later reports of that period show
 their differences against it, instead of replacing it; the rule of the frozen reports is in
 [command-line.md](command-line.md) › Frozen reports.

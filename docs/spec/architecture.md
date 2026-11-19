@@ -42,7 +42,7 @@ is `1`; otherwise every command that writes stops with exit code 1. The tests se
 | `adapters` | one subpackage for each adapter; `claude_code` turns native logs into complete events; each adapter declares the folders of native logs and the retention setting of its agent tools | `events` |
 | `index` | the local index of a store | `store` |
 | `days` | local days from the time-zone history and the day start hours | `configuration` |
-| `ingestion` | the ingestion of all adapters into the store | `adapters`, `repository`, `store`, `index`, `configuration` |
+| `ingestion` | the ingestion of all adapters into the store | `adapters`, `repository`, `store`, `index`, `configuration`, `platform` |
 | `selection` | the events of a report: its period with whole sessions, without the events that a purge blocks or that a retraction cancels | `index`, `days` |
 | `metrics` | turns, measured human time, manual entries and their union with measured human time, agent time, blocked time, activity classes of the person | `events` |
 | `attribution` | matching of identity rules and category rules, annotations, names of projects and work items, the split rule, unattributed time, activity classes of projects and work items | `metrics`, `configuration`, `days` |

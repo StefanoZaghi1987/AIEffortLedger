@@ -96,8 +96,8 @@ therefore runs:
 Setup shows the scheduled task and creates it only when the person agrees, and only in a scheduler that keeps each task
 as its own entry: the Task Scheduler on Windows, a launchd agent on macOS, or a systemd user timer on Linux. The task is
 an entry of the ledger, so the ledger changes nothing that another program owns, and a command removes it. Where only
-cron exists, whose table of a user is one shared file, setup shows the line to add. When the person does not agree, or
-the run cannot ask, such as a first run from a hook, setup only shows the task.
+cron exists, whose table of the person is one shared file, setup shows the line to add. When the person does not agree,
+or the run cannot ask, such as a first run from a hook, setup only shows the task.
 
 The entry of the scheduled ingestion has the name `ai-effort-ledger-ingest`, by which `schedule show` and
 `schedule remove` find it. It runs the absolute path of the installed command `ai-effort-ledger` with
