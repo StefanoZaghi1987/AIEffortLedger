@@ -12,8 +12,8 @@
 - Open points live in the `## To be confirmed` section of the spec they concern. They close by deletion when the owner
   rules: the ruling becomes a sentence in the body or an ADR.
 - `docs/adr/`: one decision per file; only for decisions that are hard to reverse, surprising, and a real trade-off.
-  After the first commit of an ADR, only its status line changes, except the removal of private data (see Privacy),
-  which never changes the decision.
+  Once an ADR is on `master`, only its status line changes, except the removal of private data (see Privacy), which
+  never changes the decision. On a feature branch, an ADR that is not yet on `master` is edited directly.
 - `docs/research/`: dated, point-in-time notes; ratios only.
 - A divergence between documentation and code is flagged, not resolved silently: one dated line in
   `~/.claude/escalations.md` and an item in the `To be confirmed` section of the spec.

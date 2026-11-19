@@ -53,6 +53,11 @@ The normalized class of a tool, the same for every agent tool: edit, execute, re
 other.
 _Italian_: categoria di tool
 
+**Category rule**:
+A rule of the person configuration that gives a tool category to the tool names it matches, at report time, in place
+of the category that the adapter stored.
+_Italian_: regola di categoria
+
 **Session**:
 One identified exchange between a person and an agent tool; a resumed session continues it, a forked session is a new
 session that starts with a copy of its history.
@@ -66,20 +71,27 @@ session can arrive in another way.
 _Italian_: modalità di avvio
 
 **Machine**:
-The computer on which the work of a session happened.
+The computer on which the work of a session happened; the ledger identifies it with a random identifier kept on the
+computer and shows the label that the person gives it.
 _Italian_: macchina
 
 ## Signals and decisions
 
 **Human signal**:
 An event that shows that a person attended to the work: a prompt of a session that is interactive or of unknown
-invocation, a queued message, a decision made by the person, or an interruption.
+invocation, a queued message, a decision made by the person, or an interruption; a headless prompt only when the
+report counts headless prompts.
 _Italian_: segnale umano
 
 **Notification**:
 A non-human input to an agent, such as the end of a background subagent, a message of another agent, a scheduled
-trigger, or a prompt of a session that is not interactive.
+trigger, or a prompt of a session of headless, scheduled, or orchestrated invocation.
 _Italian_: notifica
+
+**Headless prompt**:
+A prompt of a session of headless invocation, which the ledger stores as a notification; a report parameter decides
+whether reports count it as a human signal, because no source shows whether a person or a script typed it.
+_Italian_: prompt headless
 
 **Queued message**:
 A message that a person types while an agent works, delivered to the agent when it can receive it.
@@ -152,8 +164,26 @@ _Italian_: intervallo di risposta
 The human time that an isolated human signal counts for.
 _Italian_: attenzione minima
 
+**Local day**:
+The instants from the day start hour of a date, in the time zone of the person, to the start of the local day of the
+next date; the day of a timesheet and of a daily report.
+_Italian_: giorno locale
+
+**Day start hour**:
+The local hour at which a local day starts: a dated fact of the person, each hour valid from a local date, 00:00 at
+setup; not a report parameter.
+_Italian_: ora di inizio giornata
+
+**First day of the week**:
+The day on which each week of a report starts, Monday by default; a report parameter.
+_Italian_: primo giorno della settimana
+
+**Time-zone history**:
+The dated list of the time zones of a person, each valid from an instant, in the person configuration.
+_Italian_: storico dei fusi orari
+
 **Presence span**:
-The interval from the first to the last human signal of a person in one day.
+The interval from the first to the last human signal of a person in one local day.
 _Italian_: arco di presenza
 
 **Activity class**:
@@ -176,10 +206,25 @@ _Italian_: registrazione manuale
 _Avoid_: estimated day, giorno stimato, fixed summary
 
 **Timesheet entry**:
-The human time of a person for one day and one project, declared without start and end: the ledger proposes it from
-measured values, and the person confirms or changes it.
+The human time of a person for one day and one project, or for the unattributed time of that day, with an optional
+work item, declared without start and end: the ledger proposes it from measured values, and the person confirms or
+changes it.
 _Italian_: voce del registro attività
 _Avoid_: estimated day, giorno stimato
+
+**Measured day**:
+A day with no confirmed timesheet entry: its human time is the union of measured human time and manual entries.
+_Italian_: giorno misurato
+
+**Declared day**:
+A day with at least one confirmed timesheet entry: the sum of its timesheet entries is all the human time of the
+person in that day, and its measured values are evidence.
+_Italian_: giorno dichiarato
+_Avoid_: closed day, giorno chiuso
+
+**Timesheet granularity**:
+The unit to which the ledger rounds the timesheet entries that it proposes, for example 15 minutes.
+_Italian_: granularità del registro attività
 
 **Declared usage**:
 Agent time, token usage, or cost that a person declares for work that no source recorded, such as a cloud session.
@@ -194,8 +239,14 @@ A value that comes from a manual entry, a timesheet entry, or declared usage.
 _Italian_: valore dichiarato
 
 **Size counter**:
-A number that describes the size of an edit without its text: lines added, lines removed, and the file extension.
+The values that describe the size of an edit without its text: lines added, lines removed, and the file extension;
+their size basis tells whether they come from a patch or from the tool input.
 _Italian_: contatore di dimensione
+
+**Size basis**:
+The origin of the size counters of a tool call: `patch` when they come from the patch of the change, `input` when they
+come from the tool input.
+_Italian_: base della dimensione
 
 ## Data
 
@@ -240,6 +291,30 @@ _Avoid_: database, data file, ledger (the name of the tool)
 A file of the store that one machine writes and no other machine changes.
 _Italian_: segmento
 
+**Store metadata**:
+The file of the store folder in which one machine describes itself, such as its label; only that machine writes it.
+_Italian_: metadati dell'archivio
+
+**Pseudonym**:
+The name that stands for a person in a team export, kept in the person configuration.
+_Italian_: pseudonimo
+
+**Person configuration**:
+The settings and rules that a person owns, such as the time-zone history, identity rules, and hourly rates: one file
+in the store folder, so that every machine of the person reads the same values.
+_Italian_: configurazione personale
+_Avoid_: settings file, preferences, profile
+
+**Machine configuration**:
+The settings that belong to one machine: its machine identifier and the location of the store, in the machine-local
+data folder of the operating system.
+_Italian_: configurazione della macchina
+
+**Project configuration**:
+The rules that a project shares in its repository, such as identity rules on that repository; they apply only to
+events of the repository identity of that repository.
+_Italian_: configurazione di progetto
+
 **Annotation**:
 An event that sets labels on a session or a time interval, such as its work item, and adds no time.
 _Italian_: annotazione
@@ -250,8 +325,17 @@ _Italian_: ritiro
 
 **Purge**:
 The physical removal of events from the store, the only exception to append-only; a purge event keeps the removed keys,
-the reason, and the time, so that ingestion and merge do not bring the events back.
+the reason, the time, and an optional corrected version, so that ingestion and merge bring back only copies that the
+corrected version or a newer one wrote, and none when no corrected version is given.
 _Italian_: eliminazione definitiva
+
+**Writer version**:
+The version of the ledger program that wrote an event.
+_Italian_: versione di scrittura
+
+**Corrected version**:
+The writer version from which a purge accepts new copies of the keys it removed.
+_Italian_: versione corretta
 
 ## Attribution
 
@@ -260,13 +344,20 @@ A body of work to which effort is attributed, such as a product or a contract; i
 default one repository is one project.
 _Italian_: progetto
 
+**Project identifier**:
+The value that names a project for good: identity rules give it, declared events store it, and by default it is the
+repository identity; the name that reports show is separate and can change.
+_Italian_: identificativo di progetto
+
 **Repository identity**:
 The normalized remote URL of a repository, or the hash of its root commit when it has no remote, read from the
-repository files; an observation on events, not a project.
+repository files; an observation on events, not a project. It is inferred, not observed, when the folder of the event
+no longer exists and the ledger reads the nearest existing parent folder.
 _Italian_: identità del repository
 
 **Identity rule**:
-A rule of the configuration that resolves events to a project from their repository identity, folder, branch, and date.
+A rule of the person configuration or of a project configuration that resolves events to a project from their
+repository identity, folder, branch, and date.
 _Italian_: regola di identità
 
 **Unattributed**:
@@ -300,6 +391,12 @@ _Italian_: regola di ripartizione
 **Period**:
 A calendar interval that a report covers: a day, a week, a month, or a custom interval.
 _Italian_: periodo
+
+**Report parameter**:
+A value that a report uses to compute its figures, such as the idle gap or the first day of the week; the person
+configuration gives its default, an option of a command can change it for one report, and every report records the
+values it used.
+_Italian_: parametro del report
 
 **Frozen period**:
 A period whose report was given to someone and is no longer recomputed.

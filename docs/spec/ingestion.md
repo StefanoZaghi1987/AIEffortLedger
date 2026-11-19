@@ -1,7 +1,7 @@
 # Ingestion
 
 How sources reach the store. Terms follow [GLOSSARY.md](../../GLOSSARY.md); the reasons are in ADR 0004, ADR 0006,
-ADR 0009, and ADR 0010.
+ADR 0009, ADR 0010, ADR 0015, and ADR 0018.
 
 ## Adapters
 
@@ -11,8 +11,34 @@ versions it supports; a record type or a structure it does not know produces a w
 format version, never an event with a guessed meaning.
 
 An adapter sets the invocation of each session from what the source shows, and writes the prompts of sessions that are
-not interactive as notifications. For Claude Code, the entry points `cli` and `local-agent` are interactive and the
-entry point `sdk-cli` is headless.
+not interactive as notifications. The Claude Code adapter sets the invocation from the entry point of each record with a
+table of observed values: `cli` and `local-agent` are interactive, and `sdk-cli` is headless. Any other value gives
+invocation `unknown` and a warning that names the value. When a later writer version of the adapter knows the value, a
+purge that names that version as its corrected version lets the next ingestion write the events again with their
+invocation, while the native log exists (ADR 0015). An adapter sets invocation `orchestrated` only when the source shows
+a sign of it.
+
+The Claude Code adapter maps native tool names to tool categories with this table; every other name, such as the name
+of a tool of an MCP server, is `other`:
+
+| Tool category | Native tool names |
+|---|---|
+| `edit` | `Edit`, `Write`, `MultiEdit`, `NotebookEdit` |
+| `execute` | `Bash`, `PowerShell` |
+| `read` | `Read` |
+| `search` | `Grep`, `Glob` |
+| `web` | `WebFetch`, `WebSearch` |
+| `delegate` | `Agent`, `Task`, `SendMessage`, `SubagentHandback`, `ListAgents` |
+| `decide` | `AskUserQuestion`, `ExitPlanMode` |
+| `other` | `ToolSearch`, `Skill`, `TodoWrite`, `TaskCreate`, `TaskUpdate`, `TaskStop`, `Monitor`, `ListMcpResourcesTool` |
+
+Ingestion warns once for each tool name that the table does not list and that no category rule matches
+([configuration.md](configuration.md) › Matching); a category rule such as `mcp__*` → `other` stops the warnings for
+all tools of MCP servers.
+
+It takes size counters from the `structuredPatch` of the tool result of `Edit` and `Write`, and from the input when no
+patch exists; the `type` of a `Write` result (`create` or `update`) tells whether the file was new. A result that
+carries `is_error` gets no size counters, because the edit changed no file.
 
 The Claude Code adapter also reads Claude Desktop sessions, which use the same format: local Cowork sessions under
 `Claude/local-agent-mode-sessions/…/.claude/projects/` in the application data folder of the operating system.
@@ -22,9 +48,34 @@ The Claude Code adapter also reads Claude Desktop sessions, which use the same f
 The store is a folder of segments (ADR 0010). Ingestion on a machine appends events only to the segments of that
 machine and never changes a segment of another machine. A lock per machine serializes ingestions that start at the
 same time, such as a scheduled run and a hook. Each machine keeps a local index derived from all segments; the index
-is never shared and can be rebuilt. Every read ignores the events whose key a purge lists, in any segment. Before it
-appends an event, ingestion checks the purges of all segments, and it removes purged events from the segments of its
-own machine.
+is never shared and can be rebuilt. Every read ignores the copies that a purge blocks, in any segment (see
+[event-schema.md](event-schema.md)). Before it appends an event, ingestion checks the purges of all segments, and it
+removes blocked copies from the segments of its own machine.
+
+A segment has one writer, so two machines must never share an identifier, while a new identifier is always safe: the old
+segments only stop growing. At its first run on a machine, the ledger creates a random machine identifier and keeps it
+in the machine configuration, in the machine-local data folder of the operating system
+(`%LOCALAPPDATA%\ai-effort-ledger\machine` on Windows, `$XDG_STATE_HOME/ai-effort-ledger` on Linux, with `~/.local/state`
+when the variable is not set, and `~/Library/Application Support/ai-effort-ledger/machine` on macOS), never in the store
+and never in a folder that a roaming profile copies. Next to it, the ledger keeps a salted hash of the identifier that
+the operating system gives to its installation; when that hash changes, because a user profile was copied to another
+computer or a virtual machine was cloned, the ledger creates a new machine identifier. Where the operating system gives
+no identifier, this check does not apply. The person gives each machine a label, which the machine writes in its own
+file of store metadata and reports show; the label can change at any time.
+
+The store folder has this layout, and every file has one writer (ADR 0010):
+
+| Path | Content | Writer |
+|---|---|---|
+| `segments/<machine>/<YYYY-MM>.jsonl` | the events that the machine wrote in that month of `ingested_at` (UTC) | that machine |
+| `machines/<machine>.toml` | the store metadata of the machine: its label | that machine |
+| `configuration.toml` | the person configuration ([configuration.md](configuration.md)) | the person |
+
+A machine appends only to the segment of the current month, so an older segment changes only through a purge. The order
+of the names of segments, which settles two copies of an event with the same `ingested_at` (see
+[event-schema.md](event-schema.md)), is the order of these paths as text. The lock and the record of the newest event
+found per source are facts of one machine: they stay in the machine-local data folder, next to the machine
+configuration, outside the store.
 
 ## Frequency
 
@@ -36,8 +87,22 @@ therefore runs:
 - before a worktree is removed, where the agent tool reports the removal, so that its repository identity is observed
   while the folder exists.
 
+Setup shows the scheduled task and creates it only when the person agrees, and only in a scheduler that keeps each
+task as its own entry: the Task Scheduler on Windows, a launchd agent on macOS, or a systemd user timer on Linux. The
+task is an entry of the ledger, so the ledger changes nothing that another program owns, and a command removes it.
+Where only cron exists, whose table of a user is one shared file, setup shows the line to add. When the person does
+not agree, or the run cannot ask, such as a first run from a hook, setup only shows the task. The task runs a missed
+start as soon as possible where the scheduler allows it.
+
 Every ingestion records the newest event it found per source. When the oldest event still present in a source is newer
 than the newest event already in the store, the ledger warns that some events were lost.
+
+Each adapter declares the retention setting of its agent tool (for Claude Code, `cleanupPeriodDays` in any settings
+file). Setup shows the retention period that the agent tool applies and what it means: events of a native log that a
+longer gap in ingestion lets the agent tool delete are lost, and a purge that names a corrected version brings back
+only events whose native log still exists (ADR 0015). Setup advises a longer retention period, shows the setting to
+change, and states its cost: the native log keeps the text of prompts, responses, and code on the disk for longer. The
+person decides; the ledger never changes the settings of an agent tool.
 
 ## Repository identity
 
@@ -45,21 +110,37 @@ Repository identity is an observation on events; identity rules turn it into a p
 ledger resolves the repository of a folder by reading files, never by running git inside a folder taken from a source
 (ADR 0004): it finds `.git` (a folder, or a file that points to a worktree folder), follows `commondir` to the common
 git directory, and reads the remote URL from its `config`, or the root commit from the object store when no remote
-exists. Folders without git, folders inside virtual machines (such as Cowork sessions), and folders that no longer
-exist resolve through identity rules in the configuration; otherwise their events are unattributed.
+exists.
+
+The remote is the first one in the list of preferred remote names of the person configuration (`["origin"]` by
+default) that the repository has, otherwise the first remote in the order of the names. Its URL becomes a repository
+identity in these steps: remove the scheme (such as `https://` or `ssh://`), the user information with any password
+or token, and the port; write `host:path` as `host/path`; remove a final `.git` and a final `/`; write all in lower
+case. An SSH clone and an HTTPS clone of one repository therefore have one repository identity, and no credential
+reaches the store.
+
+The root commit is the commit that the ledger reaches from `HEAD`, resolved through the reference files and
+`packed-refs`, by following the first parent of each commit until a commit has no parent. The ledger reads each commit
+as a loose object or from a pack file, with its deltas, using only the standard library (`zlib`), and keeps the result
+for each repository, so it reads the history of a repository once. A shallow clone, whose history stops before its
+root, has no root-commit identity, and the ledger warns.
+
+When the folder of an event no longer exists, ingestion starts the search for `.git` at the nearest existing parent
+folder; the repository identity it finds is inferred, and the event records `repo_basis` `inferred` (ADR 0018).
+Folders without git, folders inside virtual machines (such as Cowork sessions), and folders whose search finds no
+repository resolve through identity rules ([configuration.md](configuration.md)); otherwise their events are
+unattributed.
 
 ## To be confirmed
 
-- How the root commit is found without git when the object store is packed.
-- How a hook of an agent tool triggers ingestion without delaying the end of the session.
-- The invocation of the other Claude Code entry points (editor extensions, other SDK entry points), and how an adapter
-  recognizes sessions that an orchestrator drives and the session that started them.
-- Whether a headless prompt that a person types in a terminal (for example a single `claude -p` command) counts as a
-  human signal, and how the adapter can tell it from a script.
-- Whether one adapter reads events that other programs (agent tools, orchestrators, converters written by a member of
-  a team) write directly in the form of [event-schema.md](event-schema.md), and how it rejects fields outside the
-  schema, so that a new agent tool needs no adapter inside the ledger.
-- Whether a folder that no longer exists resolves through its nearest existing parent folder (for example a worktree
-  inside its repository), with the result marked as inferred.
-- Whether setup advises a longer retention period where an agent tool allows it (for Claude Code,
-  `cleanupPeriodDays`), after a check of the official documentation.
+- How a hook of an agent tool triggers ingestion without delaying the end of the session. Facts for Claude Code
+  ([hooks](https://code.claude.com/docs/en/hooks), checked 2026-11-19): `SessionEnd` hooks share a budget of 1.5
+  seconds, which a per-hook `timeout` raises up to 60 seconds; a command hook with `"async": true` runs in the
+  background, and Claude Code does not enforce its `timeout`; `WorktreeRemove` fires only for a worktree that a
+  `WorktreeCreate` hook created, so the nearest existing parent folder (ADR 0018) still covers other worktrees. To
+  specify at the start of Phase 3.
+- How an adapter recognizes sessions that an orchestrator drives, and the session that started them: the native log
+  of Claude Code shows no known sign. To specify with a real sample.
+- Whether one adapter reads events that other programs (agent tools, orchestrators, converters written by a member of a
+  team) write directly in the form of [event-schema.md](event-schema.md), and how it rejects fields outside the schema,
+  so that a new agent tool needs no adapter inside the ledger. To specify at the start of Phase 3.

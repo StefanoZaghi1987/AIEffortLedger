@@ -21,7 +21,7 @@ Phase 0 (specification, prototype, validation, review) is complete. There is no 
 | 1 | Core: store, Claude Code adapter (also Claude Desktop), manual entries, timesheet entries, identity rules, split rule, scheduled ingestion, daily timesheet per project |
 | 2 | Attribution and reports: work items, releases and milestones, periods, declared usage, list-price cost, subscription division |
 | 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (open: an MCP server over the command line, ingestion of events that other programs write in the normalized form); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
-| 4 | Team: team export, merge, team reports |
+| 4 | Team: team export, merge, team reports, project configuration |
 | 5 | Estimation: estimate-versus-actuals dataset and estimator |
 | 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |
 
@@ -36,6 +36,7 @@ for it, and with an implementation plan.
 | [docs/spec/metrics.md](docs/spec/metrics.md) | How events become effort |
 | [docs/spec/event-schema.md](docs/spec/event-schema.md) | The normalized event |
 | [docs/spec/ingestion.md](docs/spec/ingestion.md) | How sources reach the store |
+| [docs/spec/configuration.md](docs/spec/configuration.md) | Where settings and rules live, and how they are written |
 | [docs/adr](docs/adr) | Architecture decisions, one per file |
 | [docs/research](docs/research) | Point-in-time research |
 | [prototype](prototype) | Throw-away measurements on real logs, scenario tests (`python -I -m unittest discover -s prototype/tests`), and validation |
