@@ -10,7 +10,7 @@ How the ledger turns events into effort. Terms follow [GLOSSARY.md](../../GLOSSA
 | Human time | person-hours | union | sum | human signals, agent outputs, manual entries, timesheet entries |
 | Agent time | agent-hours | sum over agents | sum | turns, declared usage |
 | Blocked time | hours | union | sum | decision requests and their decisions |
-| Calendar time | days | first to last event | first to last event | all events of a work item |
+| Calendar time | elapsed time (see To be confirmed) | first to last event | first to last event | all events of a work item |
 | Token usage | tokens per category and model | sum | sum | agent outputs, declared usage |
 | List-price cost | currency | sum | sum | token usage × price table |
 | Actual cost | currency | sum | sum | cost sources, declared usage |
@@ -53,24 +53,33 @@ signal. Its mode decides how it combines with measured human time:
   overlap it removed.
 
 A timesheet entry declares the human time of one day for one project, or for the unattributed time of the day, with a
-duration, an optional work item, and a note, and no start or end (ADR 0011). A day, a project, and a work item have at
-most one timesheet entry; a change retracts the old entry and adds a new one. The declared value of a project is the
-sum of its entries; an entry without a work item stays in the part of the project that has no work item, and the
-ledger does not divide it among work items. A timesheet entry takes no part in activity classes, in the split rule,
-or in the union with manual entries.
+duration, an optional work item, and a note, and no start or end (ADR 0011). The entries that the person confirms
+together for a day form one event, a timesheet confirmation, with at most one entry for each project and work item
+(ADR 0014); a confirmation without entries declares a day without human time. For each day, the latest timesheet
+confirmation that is not retracted gives all the timesheet entries of the day, and the earlier confirmations do not
+count. A change of a day is a new confirmation, which names the latest confirmation of the day that its machine has; a
+retraction of the latest confirmation brings back the one before it. The latest confirmation is the one with the latest
+`timestamp`, and equal instants resolve by event key. When an earlier confirmation of the day that is not retracted is
+not named by the latest one, directly or through the confirmations between them, two machines confirmed the day without
+seeing each other, and the report warns. The declared value of a project is the sum of its entries; an entry without a
+work item stays in the part of the project that has no work item, and the ledger does not divide it among work items. A
+timesheet entry takes no part in activity classes, in the split rule, or in the union with manual entries.
 
-The ledger proposes the timesheet entries of a day; the person confirms or changes them, and only confirmed entries
-enter the store. The proposal has one entry for each project and work item with measured human time in the day, and
-one for the unattributed time. Each proposed value is the measured human time with manual entries, after the split
-rule, rounded up to the timesheet granularity (default 15 minutes): measured human time is a lower bound, so a
-proposal is never lower than it. When the person gives the total human time of the day, the proposal divides that
-total by the shares of measured human time, in units of the timesheet granularity, with the largest-remainder method,
-so that the entries add up to the total. Agent time and the presence span appear next to the proposal as context,
-never as proposed values.
+The ledger computes the timesheet proposal of a day; the person confirms or changes it, and only a timesheet
+confirmation enters the store. The proposal has one entry for each project and work item with measured human time in
+the day, and one for the unattributed time when it is not zero. Each proposed value is the measured human time with
+manual entries, after the split rule, rounded up to the timesheet granularity (default 15 minutes): measured human
+time is a lower bound, so a proposal without a given total is never lower than it. When the person gives the total
+human time of the day, the proposal divides that total by the shares of measured human time, in units of the timesheet
+granularity, with the largest-remainder method, so that the entries add up to the total; a part of the total smaller
+than one unit goes to the entry with the largest remainder. The total can be lower than the measured human time: then
+an entry can be lower than the measured human time of its project, and the report warns, as on every declared day. When
+the person gives the value of some entries and a total, the rest of the total divides among the other entries in the
+same way. Agent time and the presence span appear next to the proposal as context, never as proposed values.
 
-A day with at least one confirmed timesheet entry is a declared day (ADR 0014): the sum of its timesheet entries is
-all the human time of the person in that day, and its measured human time and manual entries are evidence. A day
-whose entries are all retracted is a measured day again.
+A day with a timesheet confirmation that is not retracted is a declared day (ADR 0014): the sum of the timesheet
+entries of its latest confirmation is all the human time of the person in that day, and its measured human time and
+manual entries are evidence. A day whose confirmations are all retracted is a measured day again.
 
 Declared usage gives agent time, token usage, or actual cost of work that no source recorded, such as a cloud session.
 Its values appear in their own quantities as declared values; declared token usage with a model gets a list-price
@@ -103,7 +112,7 @@ shows how much agents work in parallel.
 
 Blocked time runs from a decision request to its decision: a permission request, a question to the person, or a plan
 approval. It is a state of the agent and counts whether or not the person is present. A decision request that gets no
-decision ends at the next event of its session, at an interruption, or at the last event of the session. A decision
+decision ends at the next event of its agent, at an interruption, or at the last event of the session. A decision
 request that a configured rule answers produces no blocked time worth reporting, because the rule answers at once.
 
 ## Activity classes
@@ -140,11 +149,19 @@ milestone, and cost centre. A report is a grouping over a period. Identity rules
 report time from its repository identity, folder, branch, and date; by default one repository is one project (ADR 0009).
 A project is a project identifier with a name (ADR 0019): by default the identifier is the repository identity, and the
 name is the last part of its path, or the first 12 characters of a root-commit hash; an entry of the person
-configuration gives another name. Reports group by project identifier and show the name. An event without its own
-folder, branch, or repository identity takes those of the previous event of its session. Annotations override the
-derived attribution of a session or an interval; where annotations overlap, the most recent one applies. Events whose
-project or work item cannot be resolved go to the unattributed bucket. Reports show the share of the human time and
-agent time of each project that rests on an inferred repository identity (ADR 0018).
+configuration gives another name. When two project identifiers have the same default name, reports show as many parts of
+the path as make the names different; a name that the person configuration gives to two project identifiers is a
+configuration error, and the report shows both identifiers. Reports group by project identifier and show the name, and
+they warn about declared events whose project identifier no identity rule, no entry of the person configuration, and no
+repository identity gives (ADR 0019). A work item has a work item identifier and a name in the same way; without an
+entry of the person configuration, its name is its identifier. Work items come from annotations and declared events. An
+event without its own folder, branch, or repository identity takes those of the previous event of its session.
+Annotations override the derived attribution of a session or an interval; where annotations overlap, the one with the
+latest `timestamp` applies, and equal instants resolve by event key. Where manual entries in mode `overlapping` overlap
+each other, the same rule applies. Events whose project or work item cannot be resolved, also because of a configuration
+error ([configuration.md](configuration.md) › Matching), go to the unattributed bucket. Blocked time takes the
+attribution of its decision request. Reports show the share of the human time and agent time of each project that rests
+on an inferred repository identity (ADR 0018).
 
 The split rule gives each instant of measured human time to one human signal. Each interval of human time belongs to
 the human signal that ends it: a signal gap to its later signal, a response interval and a minimum attention interval
@@ -192,9 +209,11 @@ that the unmeasured share is unknown and that the allocated cost of each project
 
 Every report records the parameters and the dated facts it used (idle gap, stale limit, minimum attention time, headless
 prompts, split rule, identity rules, category rules, time-zone history, day start hours, first day of the week,
-timesheet granularity, price tables) and the state of the store it read. A person can freeze a period after giving its
-report to someone: the frozen report is kept as given, and later reports show any difference against it instead of
-replacing it.
+timesheet granularity, price tables), the version of the ledger and of the time-zone database, and the state of the
+store it read ([architecture.md](architecture.md) › Report record). A person can freeze a period after giving its report
+to someone: the frozen report is kept as given in the store folder ([ingestion.md](ingestion.md) › Store), and later
+reports show any difference against it instead of replacing it. Where frozen reports overlap, a later report compares
+each day with the latest frozen report that holds that day.
 
 ## Uncertainty
 

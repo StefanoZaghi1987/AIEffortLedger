@@ -22,7 +22,7 @@ tool input.
 
 ## Consequences
 
-- The event schema changes version: a tool call with size counters has `size_basis`.
+- A tool call with size counters has `size_basis`; the event schema has this field from its first version.
 - Estimates compare counters of the same basis, or treat the input basis as approximate.
 - The adapter reads the tool result before it writes the tool call, so it reads all the files of a session together,
   as the event schema already requires.

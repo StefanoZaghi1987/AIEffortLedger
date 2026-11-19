@@ -27,8 +27,9 @@ purged keys.
 
 ## Consequences
 
-- The event schema changes version: every event has `writer_version`, and a purge has an optional
-  `corrected_version`.
+- Every event has `writer_version`, and a purge has an optional `corrected_version`; the event schema has these fields
+  from its first version.
 - After an adapter error, the events that the faulty versions wrote can be selected by writer version, without a scan
   of the sources.
-- Writer versions must be comparable: each adapter and command has an increasing version.
+- Writer versions must be comparable: every build of the ledger that writes to a store has a higher version than every
+  earlier build.

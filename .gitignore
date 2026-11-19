@@ -8,7 +8,3 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-
-# Local stores, wherever a person places them inside the repository
-*.ledger.sqlite
-*.ledger.sqlite-*

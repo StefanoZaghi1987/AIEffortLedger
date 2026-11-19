@@ -22,9 +22,12 @@ configuration can give any project identifier a name. Declared events store the 
 
 ## Consequences
 
+- Work items follow the same rule: declared events store a work item identifier, and an entry of the person
+  configuration gives it a name; without an entry, the name is the identifier.
 - A change of name changes only the configuration; stored events stay as they are, and all history shows the new name.
 - A rule that gives a new project identifier to work that had another one leaves the declared events of the old
   identifier where they are; the report warns about declared events whose project identifier no rule, no entry of
   the person configuration, and no repository identity gives.
-- Reports group by project identifier and show the name; a name that two project identifiers share is a configuration
-  error that the report shows.
+- Reports group by project identifier and show the name; a name that the person configuration gives to two project
+  identifiers is a configuration error that the report shows. Two default names that are the same show more parts of
+  their path, so a configuration without names never has this error.

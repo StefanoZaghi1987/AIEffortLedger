@@ -130,16 +130,22 @@ _Italian_: tempo bloccato
 _Avoid_: waiting time, idle agent time
 
 **Calendar time**:
-Elapsed time from the first to the last event of a work item.
+Elapsed time from the first to the last event of work of a work item; annotations, retractions, and purges are not
+work.
 _Italian_: tempo di calendario
 _Avoid_: lead time
 
 **Turn**:
 One unit of agent execution: it starts at an input that reaches an agent with no turn in progress, continues through
 the tool results, queued messages, and notifications that arrive while it is in progress, and ends at the last agent
-output before the agent waits for a prompt or a notification.
+output before the agent waits for a prompt or a notification, at an interruption, at the end of the session, or at its
+last event when no event follows within the stale limit.
 _Italian_: turno
 _Avoid_: request, round
+
+**Agent output**:
+One response of a model to an agent, with its token usage.
+_Italian_: output dell'agente
 
 **Stale limit**:
 The longest time without any event after which a turn in progress ends at its last event.
@@ -178,6 +184,11 @@ _Italian_: ora di inizio giornata
 The day on which each week of a report starts, Monday by default; a report parameter.
 _Italian_: primo giorno della settimana
 
+**Dated fact**:
+A value of the person configuration that is valid from an instant or a local date until the start of the next value of
+the same list, such as a time zone or a day start hour; a change adds a value and keeps the earlier ones.
+_Italian_: dato datato
+
 **Time-zone history**:
 The dated list of the time zones of a person, each valid from an instant, in the person configuration.
 _Italian_: storico dei fusi orari
@@ -212,13 +223,24 @@ changes it.
 _Italian_: voce del registro attività
 _Avoid_: estimated day, giorno stimato
 
+**Timesheet proposal**:
+The timesheet entries that the ledger computes for one day from measured values, before the person confirms them; it
+never enters the store.
+_Italian_: proposta del registro attività
+
+**Timesheet confirmation**:
+The event that holds the timesheet entries of one day that a person confirms together; the latest confirmation of a day
+that is not retracted gives all the timesheet entries of that day.
+_Italian_: conferma del registro attività
+
 **Measured day**:
-A day with no confirmed timesheet entry: its human time is the union of measured human time and manual entries.
+A day with no timesheet confirmation that is not retracted: its human time is the union of measured human time and
+manual entries.
 _Italian_: giorno misurato
 
 **Declared day**:
-A day with at least one confirmed timesheet entry: the sum of its timesheet entries is all the human time of the
-person in that day, and its measured values are evidence.
+A day with a timesheet confirmation that is not retracted: the sum of the timesheet entries of its latest confirmation
+is all the human time of the person in that day, and its measured values are evidence.
 _Italian_: giorno dichiarato
 _Avoid_: closed day, giorno chiuso
 
@@ -262,6 +284,11 @@ _Italian_: log nativo
 The time after which an agent tool deletes its native logs.
 _Italian_: periodo di conservazione
 
+**Settle time**:
+The time without a change to the files of a session after which ingestion takes every event of the session as
+complete; 4 hours by default.
+_Italian_: tempo di assestamento
+
 **Hook**:
 A command that an agent tool runs at a defined point of a session, such as the end of a session, and that receives
 data about that point.
@@ -282,6 +309,19 @@ One atomic, timestamped fact that comes from a source.
 _Italian_: evento
 _Avoid_: record, log line, block
 
+**Native identifier**:
+The identifier that a source gives to one of its records, unique across the sessions of that source.
+_Italian_: identificativo nativo
+
+**Complete event**:
+An event that no later record of its source can change; only complete events enter the store.
+_Italian_: evento completo
+
+**Event key**:
+The identity of an event: its source and its native identifier, or, when the source gives none, its source, its
+session, and an identifier that the adapter makes; two copies with the same key are one event.
+_Italian_: chiave dell'evento
+
 **Store**:
 The private, append-only collection of the events of one person: a folder of segments.
 _Italian_: archivio
@@ -290,6 +330,11 @@ _Avoid_: database, data file, ledger (the name of the tool)
 **Segment**:
 A file of the store that one machine writes and no other machine changes.
 _Italian_: segmento
+
+**Local index**:
+A file of one machine that holds the events of all segments of a store in a form that reports read fast; it is never
+shared, and the ledger can build it again from the segments at any time.
+_Italian_: indice locale
 
 **Store metadata**:
 The file of the store folder in which one machine describes itself, such as its label; only that machine writes it.
@@ -306,8 +351,8 @@ _Italian_: configurazione personale
 _Avoid_: settings file, preferences, profile
 
 **Machine configuration**:
-The settings that belong to one machine: its machine identifier and the location of the store, in the machine-local
-data folder of the operating system.
+The settings that belong to one machine: its machine identifier, the check of its installation, the location of the
+store, and the folders of native logs, in the machine-local data folder of the operating system.
 _Italian_: configurazione della macchina
 
 **Project configuration**:
@@ -315,8 +360,13 @@ The rules that a project shares in its repository, such as identity rules on tha
 events of the repository identity of that repository.
 _Italian_: configurazione di progetto
 
+**Setup**:
+The steps with which the ledger starts on a machine: the machine configuration, the person configuration when the store
+folder has none, and the scheduled ingestion with the consent of the person.
+_Italian_: configurazione iniziale
+
 **Annotation**:
-An event that sets labels on a session or a time interval, such as its work item, and adds no time.
+An event that sets the project, the work item, or labels of a session or a time interval, and adds no time.
 _Italian_: annotazione
 
 **Retraction**:
@@ -360,6 +410,11 @@ A rule of the person configuration or of a project configuration that resolves e
 repository identity, folder, branch, and date.
 _Italian_: regola di identità
 
+**Configuration error**:
+A rule or an entry of a configuration that the ledger cannot apply without a guess, such as two matching rules of
+which neither is more specific; the ledger applies none of them, and the report shows the error.
+_Italian_: errore di configurazione
+
 **Unattributed**:
 The bucket of events, and of usage known only from imported totals, whose project or work item cannot be resolved,
 kept so that attributed parts add up to totals.
@@ -369,6 +424,11 @@ _Italian_: non attribuito
 One unit of planned work, such as a task, an issue, or an evolution, that collects effort and can carry an estimate.
 _Italian_: unità di lavoro
 _Avoid_: activity, job, task (as the generic term)
+
+**Work item identifier**:
+The value that names a work item of a project for good: declared events store it, and the name that reports show
+is separate, can change, and is the identifier when the person configuration gives none.
+_Italian_: identificativo dell'unità di lavoro
 
 **Release**:
 A published version of the deliverable of a project.
@@ -393,13 +453,13 @@ A calendar interval that a report covers: a day, a week, a month, or a custom in
 _Italian_: periodo
 
 **Report parameter**:
-A value that a report uses to compute its figures, such as the idle gap or the first day of the week; the person
-configuration gives its default, an option of a command can change it for one report, and every report records the
-values it used.
+A value that a report uses to compute or show its figures, such as the idle gap, the first day of the week, or the
+language; the person configuration gives its default, an option of a command can change it for one report, and every
+report records the values it used.
 _Italian_: parametro del report
 
 **Frozen period**:
-A period whose report was given to someone and is no longer recomputed.
+A period whose report was given to someone and is kept as given; later reports show their differences against it.
 _Italian_: periodo congelato
 
 ## Cost
@@ -448,6 +508,16 @@ An organizational unit to which effort and cost are charged, independent of proj
 _Italian_: centro di costo
 
 ## Reporting and estimation
+
+**Report**:
+The figures that the ledger computes from the store for a period, with the report parameters and the dated facts that
+it used; a timesheet is shown by a report.
+_Italian_: report
+
+**Report record**:
+The part of a report that tells how it was computed: the version of the ledger, the report parameters, the dated facts,
+the configuration errors, and the state of the store that it read; a frozen period keeps it with the figures.
+_Italian_: traccia del report
 
 **Effort**:
 The human time, agent time, blocked time, calendar time, token usage, and cost of a work item, reported as separate
