@@ -28,8 +28,13 @@ purged keys.
 ## Consequences
 
 - Every event has `writer_version`, and a purge has an optional `corrected_version`; the event schema has these fields
-  from its first version.
+  from its first version. A purge with a corrected version also names the sessions that hold its keys, because a key
+  from a native identifier does not name its session and the machine that ran the purge has removed its own copies;
+  every machine that receives the purge then knows which sessions to read again, once its own version is the corrected
+  version or a newer one.
 - After an adapter error, the events that the faulty versions wrote can be selected by writer version, without a scan
   of the sources.
-- Writer versions must be comparable: every build of the ledger that writes to a store has a higher version than every
-  earlier build.
+- Writer versions must be comparable: every release has a higher version than every earlier release, and the code
+  between two releases carries the next version with a development mark (`1.3.0.dev0`), which comes before that
+  release and writes to a store only when the person allows it on purpose; one version number therefore never names two
+  different programs in a real store.

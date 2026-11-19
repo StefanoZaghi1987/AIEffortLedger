@@ -1,10 +1,9 @@
 # Prototype findings — November 2026
 
 Point-in-time measurements by [prototype/measure.py](../../prototype/measure.py) on the Claude Code and Claude Desktop
-(Cowork) transcripts of one person on 18 November 2026: 69 sessions and 131 subagent files, Claude Code 2.1.x. The
-prototype applies the definitions of [metrics.md](../spec/metrics.md), reads transcripts only, and copies no text.
-Absolute hours and folder names stay in `prototype/out/`, which git ignores (ADR 0003); this file gives ratios. It is
-not updated afterwards.
+(Cowork) transcripts of one person on 18 November 2026, Claude Code 2.1.x. The prototype applies the definitions of
+[metrics.md](../spec/metrics.md), reads transcripts only, and copies no text. Absolute hours and folder names stay in
+`prototype/out/`, which git ignores (ADR 0003); this file gives ratios. It is not updated afterwards.
 
 ## Sources
 
@@ -22,7 +21,7 @@ not updated afterwards.
 - `system` / `away_summary` records mark that the tool detected the absence of the person.
 - At least 15 record types are present; the adapter must ignore unknown types and warn about unknown structure.
 - Retention works as configured: between two runs on the same day, the transcripts of the 30th day back disappeared
-  (164 files in the morning, 161 in the evening).
+  (about 2 % of the files).
 
 ## Human signals
 

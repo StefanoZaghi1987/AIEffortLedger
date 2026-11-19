@@ -1,7 +1,8 @@
 # Event schema
 
 The normalized event is the contract between adapters and the metrics engine (ADR 0002). Adapters write events; the
-metrics engine reads only events, never native source formats. Terms follow [GLOSSARY.md](../../GLOSSARY.md).
+metrics engine reads only events, never native source formats. Terms follow [GLOSSARY.md](../../GLOSSARY.md); the
+reasons for event identity and for new schema versions are in ADR 0023.
 
 ## Kinds
 
@@ -12,14 +13,14 @@ metrics engine reads only events, never native source formats. Terms follow [GLO
 | `queued_message` | human | A message typed while an agent works |
 | `interruption` | human | The person stops an agent turn |
 | `notification` | system | A non-human input to an agent: task notification, coordinator or peer message, the input that a subagent gets from the agent that started it, scheduled trigger, or a prompt of a session of headless, scheduled, or orchestrated invocation |
-| `agent_output` | agent | One response of a model; carries token usage |
+| `agent_output` | agent | One response of a model; carries token usage, request counts, and price factors |
 | `tool_call` | agent | An agent asks to run a tool; carries the tool name, the tool category, and size counters |
 | `tool_result` | system | The result of a tool returns to the agent |
 | `decision_request` | agent | A permission request, a question to the person, or a plan approval |
 | `decision` | human or system | The answer to a decision request; `human` when the person answered, `system` for a configured rule |
 | `manual_entry` | human | An interval of declared human time |
 | `timesheet_confirmation` | human | The timesheet entries of one day that the person confirms together, each with the declared human time of a project or of the unattributed time, and an optional work item (ADR 0011, ADR 0014) |
-| `declared_usage` | human | Declared agent time, token usage, or cost of work that no source recorded |
+| `declared_usage` | human | Declared agent time, token usage, or cost of work that no source recorded (Phase 2) |
 | `annotation` | human | Project, work item, or labels of a session or a time interval; adds no time |
 | `retraction` | human | Cancels an earlier event by event key |
 | `purge` | human | The keys that a purge removed, its reason, its time, and an optional corrected version (ADR 0008, ADR 0015) |
@@ -37,9 +38,9 @@ derives them.
 | `native_id` | when the source gives one | Identifier of the event in the source, unique across sessions of that source |
 | `session_id` | for events of a session | Session identifier given by the source |
 | `event_uid` | yes | Identifier of the event within its session, stable across re-ingestion; the native identifier when the source gives one |
-| `timestamp` | yes | UTC instant of the event; for an `agent_output` written on several lines, the instant of the last line |
+| `timestamp` | yes | UTC instant of the event; for an `agent_output` written on several lines, the instant of the last line; for an event that a command writes, the instant at which the command writes it |
 | `ingested_at` | yes | UTC instant at which the event first entered a segment |
-| `writer_version` | yes | Version of the ledger program that wrote the event, compared number by number (`1.10.0` is newer than `1.9.0`); not part of the key (ADR 0015) |
+| `writer_version` | yes | Version of the ledger program that wrote the event, compared number by number (`1.10.0` is newer than `1.9.0`), and a version with a development mark before the same version without it (`1.3.0.dev0` is older than `1.3.0`); not part of the key (ADR 0015) |
 | `actor` | yes | `human`, `agent`, or `system` |
 | `kind` | yes | One of the kinds above |
 | `invocation` | for events of a session | `interactive`, `headless`, `scheduled`, `orchestrated`, or `unknown`, as the source shows it at the event; a resumed session can change it |
@@ -60,25 +61,28 @@ derives them.
 | `provider_hint` | for `agent_output` when the source shows it | What the source shows about the provider, such as the host of the endpoint; the provider is resolved at report time |
 | `model` | for `agent_output`; optional for `declared_usage` | Model identifier as given by the source or by the person |
 | `tokens` | for `agent_output`; optional for `declared_usage` | Token counts per category; the category set is open (see below) |
+| `requests` | for `agent_output` when the source gives them | Request counts per request type, such as `web_search`; the set of types is open, and a count of zero is not written (ADR 0024) |
+| `price_factors` | for `agent_output` when the source gives them | Price factors by name, such as `speed`, `service_tier`, or `inference_geo`, each with the value that the source gives; the set of names is open (ADR 0024) |
 | `cwd` | when known | Folder of the session when the event occurred |
 | `repo_hint` | when known | Repository identity observed or inferred at ingestion (ADR 0004, ADR 0009, ADR 0018) |
 | `repo_basis` | with `repo_hint` | `observed` when read from the folder of the event, `inferred` when read from its nearest existing parent folder because the folder no longer exists (ADR 0018) |
 | `branch` | when known | Git branch at the event |
-| `start`, `end` | for manual entries and interval annotations; optional for `declared_usage` | UTC limits of the declared interval |
+| `start`, `end` | for manual entries and interval annotations; optional for `declared_usage` | UTC limits of the declared interval, which holds `start` and not `end` |
 | `day` | for timesheet confirmations | Date of the local day of the person to which the confirmation applies ([metrics.md](metrics.md)) |
-| `duration` | optional for `declared_usage` | Declared agent time |
-| `cost`, `currency` | optional for `declared_usage` | Actual cost that the person declares; computed costs are never stored (ADR 0007) |
+| `duration` | optional for `declared_usage` | Declared agent time (Phase 2) |
+| `cost`, `currency` | optional for `declared_usage` | Actual cost that the person declares (Phase 2); computed costs are never stored (ADR 0007) |
 | `manual_mode` | for manual entries | `additional` or `overlapping` |
 | `project`, `work_item` | `project` for manual entries and declared usage; otherwise optional | Attribution declared by the person: a project identifier and a work item identifier (ADR 0019); an annotation has at least one of them or `labels` |
 | `note` | optional for manual entries, annotations, and declared usage | Short text written by the person for the person |
-| `entries` | for timesheet confirmations | The timesheet entries of the day, at most one for each project and work item, possibly none: each with `project` (absent for the unattributed time), `work_item` (optional), `duration`, and `note` (optional) |
+| `entries` | for timesheet confirmations | The timesheet entries of the day, at most one for each project and work item, possibly none: each with `project` (absent for the unattributed time), `work_item` (optional, only with `project`), `duration`, and `note` (optional) |
 | `replaces` | optional for timesheet confirmations | Event key of the latest confirmation of the same day that the writing machine had when it wrote this one ([metrics.md](metrics.md) › Declared values) |
 | `annotates` | for annotations of a session | The session that the annotation applies to: `tool` and `session_id` |
 | `retracts` | for retractions | Event key of the cancelled event |
 | `purged_keys`, `purge_reason` | for purges | Keys removed and the reason, a label for the person: `content`, `correction`, or `forget` |
+| `purged_sessions` | for purges with a corrected version | The sessions that hold the purged keys, each as `tool` and `session_id`, so that every machine knows which sessions to read again (ADR 0015) |
 | `corrected_version` | optional for purges, never with reason `forget` | Writer version from which new copies of the purged keys are accepted (ADR 0015) |
-| `labels` | no | Attribution hints from the allow-list of label keys in the person configuration |
-| `session_title` | no | Title of the session, only when the person configuration allows titles |
+| `labels` | no | Attribution hints from the allow-list of label keys in the person configuration (Phase 2) |
+| `session_title` | no | Title of the session, only when the person configuration allows titles (Phase 2) |
 
 The pseudonym of the person is in the person configuration ([configuration.md](configuration.md)), not a field of each
 event; a team export adds it.
@@ -93,8 +97,15 @@ counts in the adapter.
 
 ## Encoding
 
-A segment holds one event on each line: a JSON object in UTF-8, ended by a line break (`\n`), with only the fields of
-this schema. An absent field is not written, never written as `null`.
+A segment holds one event on each line: a JSON object in UTF-8, ended by a line break (`\n`). A writer writes only the
+fields of its schema version. An absent field is not written, never written as `null`.
+
+A new schema version only adds fields, kinds, or values of a field; it never changes the meaning of an existing field,
+kind, or value (ADR 0023). A reader therefore reads an event of a newer schema version with the fields that it knows and
+ignores the other fields. It leaves out an event of a kind that it does not know, or with a value that it does not know
+in a field that it knows; such a line is not a broken line. The report warns that events of a newer version of the
+ledger exist, asks to update the ledger, and completes with the exit code for incomplete figures
+([command-line.md](command-line.md) › Exit codes).
 
 | Value | Encoding |
 |---|---|
@@ -102,13 +113,15 @@ this schema. An absent field is not written, never written as `null`.
 | `day` | local date, `YYYY-MM-DD` |
 | `duration`, also in `entries` | whole seconds |
 | `tokens` | object: token category → whole number |
+| `requests` | object: request type → whole number above zero |
+| `price_factors` | object: name → text |
 | `cost`, `currency` | decimal text, such as `"12.50"`; ISO 4217 currency code |
 | `forked_from` | object with `session_id` and `instant` |
 | An event key, in `retracts`, `replaces`, and each item of `purged_keys` | object with `source` and `native_id`; with `source`, `session_id`, and `event_uid`; or, for an event that a command writes, with `source` and `event_uid` |
-| `entries`, `annotates` | array of objects; object |
+| `entries`, `purged_sessions`, `annotates` | array of objects; array of objects; object |
 | `machine`, `event_uid` of an event that a command writes | random UUID (version 4) text |
 | `repo_hint` | `host/path` for an identity from a remote; `root-commit:` and the hash for an identity from a root commit |
-| `writer_version`, `corrected_version` | whole numbers separated by dots |
+| `writer_version`, `corrected_version` | whole numbers separated by dots, optionally followed by a development mark, `.dev` and a whole number ([architecture.md](architecture.md) › Runtime) |
 | `labels` | object: label key → text |
 
 ## Keys and invariants
@@ -118,11 +131,11 @@ this schema. An absent field is not written, never written as `null`.
   (`ledger`, `event_uid`), with a random `event_uid` made at creation. Ingesting an event twice leaves one event, also
   after an adapter starts to recognize a new `source_format`.
 - The identity of an event comes only from facts that the source gives about identity, never from the line number of a
-  record in a file or from its content. An event takes the identifier of the record it comes from; when one record gives
-  more than one event, the kind of the event goes before the identifier, for example `decision:` and the identifier of
-  the tool use. An event from a record without an identifier gets as `event_uid` its kind, its timestamp, and its
-  position among the records of its session with the same kind and timestamp, in the order of the files of the session
-  (the file of the main agent, then the files of its subagents by name) and of the lines in each file.
+  record in a file or from its content (ADR 0023). An event takes the identifier of the record it comes from; when one
+  record gives more than one event, the kind of the event goes before the identifier, for example `decision:` and the
+  identifier of the tool use. An event from a record without an identifier gets as `event_uid` its kind, its timestamp,
+  and its position among the records of its session with the same kind and timestamp, in the order of the files of the
+  session (the file of the main agent, then the files of its subagents by name) and of the lines in each file.
 - When a source writes one record more than once, for example in the file of a session and in the file of one of its
   subagents, the adapter writes one event, from the copy in the file of the agent that the record names, and warns
   when the copies differ in another field. The adapter therefore reads all the files of a session together.
@@ -135,15 +148,18 @@ this schema. An absent field is not written, never written as `null`.
 - Two sources record the same session when they give the same `tool` and the same `session_id`. Such sources, such as
   a native log and a hook, never add up: for each session and each kind, reports read one source.
 - An adapter writes a prompt as `prompt` with actor `human` only when the session is interactive or of unknown
-  invocation and the source shows a human origin; otherwise it writes a `notification` with `input_origin` `scripted`.
+  invocation and the source shows a human origin; otherwise it writes a `notification` with `input_origin` `scheduled`
+  in a session of scheduled invocation, and `scripted` in any other. A headless prompt is such a notification with
+  `input_origin` `scripted` in a session of headless invocation.
 - A forked session starts with copies of records of its original, with the same native identifiers, so a copy and
   its original are one event. A session cannot have records of its own from before it existed: the original is the
   session that holds records of its own, without a copy in the other session, inside the time range of the shared
   records, and the shared events belong to it. The fork instant is the timestamp of the last shared record, and the
   events of the fork carry `forked_from`. When both sessions or neither hold records of their own in that range, the
   session whose identifier sorts first is the original, and the adapter warns. An event already in the store keeps its
-  session.
-- One response that the source writes on several lines becomes one `agent_output` with the largest token counts.
+  session (ADR 0023).
+- One response that the source writes on several lines becomes one `agent_output` with the largest token counts and
+  request counts, and the price factors of its last line.
 - Size counters are computed before the text is dropped (ADR 0016). When the source gives a patch of the change, in the
   tool result or in the tool input, they are the added and removed lines of the patch, with `size_basis` `patch`.
   Otherwise they are the lines of the new text and of the replaced text in the tool input, with `size_basis` `input`; a

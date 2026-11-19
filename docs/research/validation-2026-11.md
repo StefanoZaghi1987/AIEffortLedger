@@ -1,11 +1,11 @@
 # Validation of the prototype — November 2026
 
-Point-in-time validation of [prototype/measure.py](../../prototype/measure.py) against
-[metrics.md](../spec/metrics.md), on 18 November 2026. Two layers: synthetic scenarios with hand-computed expectations
+Point-in-time validation of [prototype/measure.py](../../prototype/measure.py) against [metrics.md](../spec/metrics.md),
+on 18 November 2026. Two layers: synthetic scenarios with hand-computed expectations
 ([prototype/tests](../../prototype/tests)), and checks on a fixed snapshot of the real transcripts of one person
-([prototype/validate.py](../../prototype/validate.py); 200 files). No manually kept timesheet was available, so the
-share of a working day that the sources see is estimated from the presence span instead. Absolute values stay in
-`prototype/out/` (ADR 0003). This file is not updated afterwards.
+([prototype/validate.py](../../prototype/validate.py)). No manually kept timesheet was available, so the share of a
+working day that the sources see is estimated from the presence span instead. Absolute values stay in `prototype/out/`
+(ADR 0003). This file is not updated afterwards.
 
 ## Scenarios
 
@@ -28,13 +28,13 @@ On the real data the fixes change agent time by less than 0.5 % and leave the ra
 | Check | Result |
 |---|---|
 | Determinism | A second read and a reversed file order give identical results |
-| Prompt heuristic for formats without `origin`, on the 348 records that carry `origin` | Precision 100 %, recall 100 % |
-| Turns against Claude Code `turn_duration`, on 152 turns without blocked time | Median coverage 100 %; 93 % of turns covered at least 95 % |
+| Prompt heuristic for formats without `origin`, on the records that carry `origin` | Precision 100 %, recall 100 % |
+| Turns against Claude Code `turn_duration`, on the turns without blocked time | Median coverage 100 %; 93 % of turns covered at least 95 % |
 | Minimum attention time 30 s / 60 s / 120 s | Human time 98 % / 100 % / 103 % |
 | Stale limit 2 h / 4 h / 8 h | Agent time 100 % / 100 % / 133 % |
 | Naive per-line token sum against one count per response | Output 300 %, cache read 253 % |
-| Human time inside the daily presence span (first to last human signal) | Median 19.5 % (p10 2.5 %, p90 64.5 %) on 21 days |
-| Days with agent time and no human signal | 1 |
+| Human time inside the daily presence span (first to last human signal) | Median 19.5 % (p10 2.5 %, p90 64.5 %) over the days of the snapshot |
+| Days with agent time and no human signal | About 5 % of the days |
 
 ## Conclusions
 

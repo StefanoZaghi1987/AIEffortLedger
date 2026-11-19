@@ -33,7 +33,8 @@ Read them in this order:
 | [docs/research](docs/research) | Point-in-time research; not updated after its date |
 | [prototype](prototype) | Throw-away measurements on real logs, scenario tests (`python -I -m unittest discover -s prototype/tests`), and validation |
 
-Each specification ends with a `To be confirmed` section: its open points, each with the phase that specifies it.
+A specification with open points ends with a `To be confirmed` section: each open point names the phase that specifies
+it, or the event that lets the ledger specify it, such as a real sample of a native log.
 
 ## Principles
 

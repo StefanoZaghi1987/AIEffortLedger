@@ -32,7 +32,9 @@
   [docs/spec/architecture.md](docs/spec/architecture.md); a module never imports a module that depends on it.
 - Tests: `python -I -m unittest discover -s tests`, in a virtual environment with the package installed in editable mode
   (`uv pip install -e .`). Write the failing test first. Fixtures are written by hand with invented text (see Privacy).
-- Only the standard library and `tzdata`. Ask the owner before any other dependency, also one for development only.
+- Only the standard library and `tzdata` at run time, and `flit_core` to build
+  ([build-tool-2026-11.md](docs/research/build-tool-2026-11.md)). Ask the owner before any other dependency, also one
+  for development only.
 - Names in code use the glossary terms (`human_time`, `timesheet_confirmation`, `event_key`), never a term under
   _Avoid_. Public functions have type hints.
 - Tests never read the native logs, the store, or the configuration of the machine: they use temporary folders.

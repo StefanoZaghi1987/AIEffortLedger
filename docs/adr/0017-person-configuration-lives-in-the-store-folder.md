@@ -10,8 +10,9 @@ label keys, the consent for session titles, the defaults of report parameters, a
 The person owns these facts, and the same facts apply on every machine of the person. The data of the person already
 travels in the store folder (ADR 0010). Therefore the person configuration is one file in the store folder: every
 machine that uses the store reads the same file, and a report depends only on the store folder, the version of the
-ledger, and the report parameters. Only the facts of one machine, its machine identifier and the location of the store,
-stay in the machine configuration, which the ledger must read before it can find the store.
+ledger, and the report parameters. Only the facts of one machine, its machine identifier, the salted hash of its
+installation identifier, the location of the store, and the folders of its native logs, stay in the machine
+configuration, which the ledger must read before it can find the store.
 
 ## Considered Options
 

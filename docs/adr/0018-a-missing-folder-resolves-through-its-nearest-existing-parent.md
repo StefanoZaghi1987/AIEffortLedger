@@ -11,8 +11,10 @@ events of that folder then have no repository identity and are unattributed, alt
 folder still exists. Therefore, when the folder of an event no longer exists, ingestion starts the usual search for
 `.git` at the nearest existing parent folder. A repository identity found this way is inferred, not observed: the event
 records it in `repo_hint` and records `repo_basis` = `inferred`, while an identity read from the folder itself has
-`repo_basis` = `observed`. When the search finds no repository, the event has no repository identity. This supersedes
-ADR 0004 where the hint is always an observation of the folder of the event.
+`repo_basis` = `observed`. The search never reaches the home folder of the person or the root of a drive, so a
+repository there, such as one that keeps the settings files of the person, is never inferred. When the search finds no
+repository, the event has no repository identity. This supersedes ADR 0004 where the hint is always an observation of
+the folder of the event.
 
 ## Considered Options
 

@@ -39,7 +39,7 @@ measurement showed that they were slower (same note).
 | 0 | Glossary, specifications, ADRs, measurement prototype, validation, review |
 | 1 | Core: the daily timesheet of one person, from Claude Code and Claude Desktop (see Phase 1) |
 | 2 | Attribution and reports: releases and milestones, weekly, monthly, and custom periods, declared usage, list-price cost, actual cost and subscription division, hourly rates and person cost, labels and session titles |
-| 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (open: an MCP server over the command line, ingestion of events that other programs write in the normalized form); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
+| 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (see To be confirmed); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
 | 4 | Team: team export, merge, team reports, project configuration, pseudonym |
 | 5 | Estimation: work-item types and size classes, estimates, estimate-versus-actuals dataset, estimator |
 | 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |
@@ -60,30 +60,45 @@ sentence for a later phase names it.
   preferred remotes, settle time, and defaults of report parameters;
 - human time, agent time, blocked time, activity classes, the split rule, annotations with projects and work items,
   manual entries, timesheet proposals, and timesheet confirmations;
-- the daily timesheet and the report of a day, as text and JSON, in English and Italian, with frozen periods.
+- the daily timesheet and the report of a day, as text and JSON, in English and Italian, with frozen reports and
+  their differences.
 
 The adapter writes every field of [event-schema.md](event-schema.md) that the native log gives, except session titles,
-which need consent (Phase 2), also the fields that only later phases use, such as token usage, model, and size counters:
-native logs disappear after their retention period, and a field that ingestion does not write is lost.
+which need consent (Phase 2), also the fields that only later phases use, such as token usage, request counts, price
+factors, model, and size counters: native logs disappear after their retention period, and a field that ingestion does
+not write is lost.
 
 **Acceptance criteria.**
 
-1. After `setup`, the store holds the events of every native log of the machine within its retention period; a second
-   `ingest` without new records adds no event.
-2. The same native logs give the same store at any hour of ingestion and in any order of files, except in the two
-   cases of [ingestion.md](ingestion.md) › Adapters, and segments of two machines give the same reports in any order.
+1. After `setup`, the store holds the complete events of every native log of the machine within its retention period;
+   a second `ingest` without new records adds no event.
+2. The same native logs give the same store at any hour of ingestion and in any order of files, except in the three
+   cases of [ingestion.md](ingestion.md) › Adapters, and segments of two machines give the same reports in any order;
+   two stores are the same when they hold the same event keys with the same fields except `ingested_at`.
 3. The scenarios of the prototype give, in the core, the human time, agent time, blocked time, and activity classes
    computed by hand.
-4. In every daily timesheet, the measured values of the projects, work items, and unattributed time add up to the
-   measured human time of the day, and on a declared day the declared values add up to its total.
+4. In every daily timesheet, the measured human time of the projects, work items, and unattributed time adds up to
+   the measured human time of the day; on a measured day their values with manual entries add up to the total human
+   time of the day; and on a declared day their declared values add up to the total of its latest timesheet
+   confirmation.
 5. A day confirmed on two machines before the file-sync service copies the segments shows the latest confirmation and
    a warning.
 6. A purge with a corrected version, followed by an ingestion with that version, gives the corrected events; a purge
    without one keeps its keys out for good.
 7. A store built from the fixtures holds no text of the prompts, responses, tool input, or code of the fixtures.
-8. The tests pass on Windows, Linux, and macOS with Python 3.11 and the newest Python release.
-9. On a laptop, the first ingestion of 30 days of native logs takes less than 1 minute, and a daily timesheet of one
-   month less than 5 seconds.
+8. The tests pass on Windows, Linux, and macOS with Python 3.11 and the newest Python release, in the workflow of
+   [architecture.md](architecture.md) › Tests.
+9. Every command of [command-line.md](command-line.md) has report tests of its text and JSON output, in English and
+   Italian, from fixture stores, among them manual entries, annotations, retractions, and frozen periods.
+10. On a laptop, with the invented native logs of the benchmark (30 days, 300,000 lines;
+    [architecture.md](architecture.md) › Tests), the first ingestion takes less than 1 minute, and a daily timesheet of
+    one month less than 5 seconds.
 
 **End of the phase.** Phase 2 starts its specification when the person has at least 20 declared days, the evidence
 that the open points of [metrics.md](metrics.md) on the upper bound of human time need.
+
+## To be confirmed
+
+- An MCP server over the command line, and the ingestion of events that other programs write in the normalized form
+  of [event-schema.md](event-schema.md): whether Phase 3 takes them, and under which rules. To specify at the start of
+  Phase 3.
