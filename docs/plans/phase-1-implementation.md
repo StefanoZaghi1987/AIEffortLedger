@@ -1,0 +1,1930 @@
+# Phase 1 Implementation Plan — the daily timesheet of one person
+
+Status: draft, in review by the owner (2026-11-19). At merge this line becomes `Status: completed`.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development (recommended) or executing-plans to
+> implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Each task has a Backlog.md task
+> with the same number; change its status only with the `backlog` command.
+
+**Goal:** Build the core of the ledger, the package `ai-effort-ledger`, so that one person gets the daily timesheet of
+their work with Claude Code and Claude Desktop, as `product.md` › Phase 1 scopes it, with its 10 acceptance criteria
+met.
+
+**Architecture:** One Python package with the 16 modules of `architecture.md` › Modules, built in the build order of
+that section, each module tested before the next one uses it. Adapters turn native logs into complete events, which
+ingestion appends to single-writer segments of the store; reports select events through the local index and compute
+`selection` → `metrics` → `attribution` → `declared` → `reports`, with `cli` as the only module that writes to the
+terminal.
+
+**Tech Stack:** Python 3.11+ (standard library: `tomllib`, `zoneinfo`, `sqlite3`, `zlib`, `json`, `argparse`,
+`unittest`), `tzdata` at run time, `flit_core` to build, `uv` for the local virtual environment, GitHub Actions.
+
+**Spec:** `docs/spec/` (all eight files), `GLOSSARY.md`, `docs/adr/0001`–`0024`. The plan argues from them; when the
+plan and a spec disagree, the spec wins and the divergence is flagged (CLAUDE.md › Documents).
+
+## Global Constraints
+
+- Python `>=3.11`. Run time: the standard library and `tzdata` only. Build: `requires = ["flit_core >=4.2,<5"]`,
+  `build-backend = "flit_core.buildapi"`. Any other dependency, also for development: ask the owner first.
+- Package `ai-effort-ledger`, import name `ai_effort_ledger`, one command `ai-effort-ledger`; static version in
+  `[project]` of `pyproject.toml`; `0.1.0.dev0` until the first release (decision D1).
+- A version with a development mark writes to a store only when `AI_EFFORT_LEDGER_DEVELOPMENT` is `1`; otherwise every
+  command that writes stops with exit code 1. `tests/support.py` sets the variable.
+- Time zones only from `tzdata`: `zoneinfo.reset_tzpath(to=[])`; every report records the `tzdata` version.
+- No network. No program runs inside a folder taken from a source (ADR 0004). The only programs the ledger runs: the
+  schedulers in `setup` and `schedule`, and `ioreg` on macOS.
+- No field holds text of prompts, responses, tool input, or code, or paths of files in tool input (ADR 0003, ADR 0012).
+  Fixtures are written by hand with invented text; never copy text out of a native log, also not into a test.
+- Instants: RFC 3339 text in UTC with `Z` and milliseconds (`2026-11-19T08:30:00.125Z`). Durations: whole seconds.
+  An absent field is not written, never written as `null`.
+- Module dependencies as `architecture.md` › Modules: a module imports only the modules below it in that table (its
+  dependencies and theirs), never a module that depends on it; `reports` imports neither `metrics` nor `attribution`.
+  Every module other than `cli` returns warnings and configuration errors as values: `{"code": str, "values": dict}`.
+- Exit codes: 0 completed, 1 stopped with an error, 2 wrong use, 3 completed with incomplete figures
+  (`command-line.md` › Exit codes).
+- Lock: 10 minutes. Local index: SQLite in WAL mode, busy timeout 30 seconds.
+- PEP 8, lines at most 99 columns, type hints on public functions, English docstrings, names from `GLOSSARY.md`;
+  `tests/style.py` names the words of `architecture.md` › Tests (ruled 2026-11-19).
+- Tests: `unittest`, temporary folders only, never the native logs, the store, or the configuration of the machine.
+  Full run: `python -I -m unittest discover -s tests`, in `.venv` with `uv pip install -e .`.
+- Markdown prose at most 120 columns. One local commit per task; a push only when the owner asks; never commit
+  `.claude/` (see Execution).
+
+## Decisions this plan takes
+
+Each one is a choice that the specs leave open. The walkthrough confirms or changes them before any code.
+
+| Id | Decision | Why |
+|---|---|---|
+| D1 | Version `0.1.0.dev0`; the first release is `0.1.0` | A first release below 1.0 says that the command-line contract is new |
+| D2 | An event in memory is a JSON-shaped `dict[str, Any]`; `encode_event` writes `sort_keys=True`, separators `(",", ":")`, `ensure_ascii=False` | The schema is open: a reader keeps fields it does not know only as data; sorted keys make two stores byte-comparable |
+| D3 | The event identifier of a record without an identifier is `<kind>:<timestamp>:<position>`, the timestamp as stored text, the position counted from 0 | Stored keys never change (ADR 0023): this format is fixed from the first event |
+| D4 | The chained hash chains raw SHA-256 digests over the bytes of each line including its `\n`; the report record shows it as hexadecimal | The line as written is what a file-sync service copies |
+| D5 | The person configuration accepts a dated value as a TOML value (`2026-12-01T00:00:00Z`, `04:00:00`) or as a basic string; `config add` writes basic strings | `configuration.md` › Writes asks for basic strings, and its examples use TOML values |
+| D6 | The retention period comes from the user settings file and the managed settings file of Claude Code; project and local settings files are not read | Their folders are not known to the ledger |
+| D7 | A fork is found in the local index by native identifier | Every copied record that gives an event keeps its native identifier |
+| D8 | Any event of a newer schema version gives `newer_schema_version` and exit code 3 | `event-schema.md` › Encoding: unknown fields are ignored, so figures can be incomplete |
+| D9 | The workflow installs with `python -m pip install -e .` | Only actions that GitHub publishes are allowed; `uv` needs a third-party action |
+| D10 | A stop error is an exception with `code`, `values`, and `exit_code`; `language` holds its texts | Modules without dependencies cannot share a base class |
+| D11 | `salt` is 32 random hexadecimal characters; `installation` is `sha256(salt + identifier)` in hexadecimal | `ingestion.md` › Store asks for a salted hash |
+| D12 | Figures are computed in milliseconds; parts that add up to a total become whole seconds by the largest-remainder method on the whole seconds of the total | Acceptance criterion 4 needs parts that add up in JSON, which holds whole seconds |
+| D13 | A frozen report file also holds `frozen_at`, the instant of the freeze; the latest frozen report of a day is the one with the latest `frozen_at`, then the identifier | `command-line.md` › Frozen reports compares with "the latest frozen report" and names no instant |
+
+## Gates
+
+A gate needs the owner. The task that holds it stops at the gate until the owner answers.
+
+| Gate | Task | What the owner gives |
+|---|---|---|
+| G1 | Task 2 | Ruled 2026-11-19: words of glossary terms pass (`architecture.md` › Tests) |
+| G2 | Task 17 | A run of the survey script on a copy of the native logs, and the rulings that its findings need |
+| G3 | Task 9 | The ruling on the CLDR release of the Windows time-zone table, after a dated research note |
+| G4 | Task 20 | Ruled 2026-11-19: an empty text has no lines (`event-schema.md` › Keys and invariants) |
+| G5 | Task 49 | A run of the benchmark on a laptop, before the first release |
+
+## Review Focus
+
+Inputs that the specs imply and that no acceptance criterion names. Each line has its test in the task named.
+
+1. A native log whose last line is half-written because Claude Code is writing it: no `invalid_record` warning; the
+   session is held back until the settle time (Task 18, `test_partial_last_line_holds_back_without_warning`).
+2. Folders with spaces and non-ASCII letters, such as `D:\Lavoro\Città Nuova`, in the store folder, in `cwd`, and in
+   TOML values (Task 14, `test_append_keeps_non_ascii_and_backslashes`; Task 28, `test_cwd_with_non_ascii_letters`).
+3. Records of one file out of time order: metrics sort by `timestamp`, never by line (Task 31,
+   `test_records_out_of_order_give_same_agent_time`).
+4. A folder of native logs that the machine configuration lists and that no longer exists: the ingestion completes
+   with zero new events for it (Task 28, `test_missing_native_log_folder`).
+5. A line of a native log that is not valid UTF-8: one `invalid_record` warning, no stop (Task 18,
+   `test_invalid_utf8_line_is_invalid_record`).
+
+## File structure
+
+```text
+pyproject.toml
+.github/workflows/tests.yml
+src/ai_effort_ledger/
+  __init__.py
+  events.py                      fields, encoding, validation, keys, merge rule, versions
+  platform/   __init__.py folders.py identity.py lock.py scheduler.py zones.py windows_zones.py
+  repository/ __init__.py discovery.py objects.py
+  language.py                    English and Italian texts by code
+  configuration/ __init__.py values.py machine.py person.py writes.py
+  store/      __init__.py segments.py purges.py files.py
+  adapters/   __init__.py
+    claude_code/ __init__.py discovery.py reading.py tables.py mapping.py size.py subagents.py
+                 completeness.py forks.py retention.py
+  index.py
+  days.py
+  ingestion/  __init__.py state.py run.py
+  selection.py
+  metrics/    __init__.py spans.py human.py agent.py classes.py
+  attribution/ __init__.py rules.py names.py annotations.py split.py
+  declared.py
+  setup.py
+  reports/    __init__.py record.py documents.py text.py frozen.py
+  cli/        __init__.py arguments.py output.py setup_actions.py store_actions.py entry_actions.py
+              report_actions.py
+tests/
+  support.py                     environment, temporary folders, instants, builders of invented records
+  style.py                       the static check (not a test module)
+  benchmark.py                   the benchmark (not a test module)
+  fixtures/claude_code/          one hand-written native log for each row of the adapter's tables
+  fixtures/expected/             expected text and JSON output, English and Italian
+  test_<module>.py               unit tests; test_scenarios.py, test_store_machines.py, test_order.py,
+                                 test_privacy.py, test_reports_output.py
+```
+
+One file has one responsibility. A subpackage exists where a module of `architecture.md` has more than one
+responsibility; its `__init__.py` holds the public names that other modules use, and nothing else imports from its
+inner files.
+
+## Execution
+
+- Mode (ruled 2026-11-19): subagent-driven. For each task a fresh writer agent and a fresh reviewer agent; the
+  reviewer compares the task with the spec sections of its Backlog task before the next task starts; one review of
+  the whole branch at the end.
+- Each task: write the failing tests, run them and see them fail, write the code, run the task's tests and then the
+  full suite, set the Backlog task to Done with the `backlog` command, then the checkpoint.
+- Checkpoint (ruled 2026-11-19): one local commit on `feat-phase-1-core` with the code, the tests, and the Backlog
+  task file of the task; the message starts with `Task <n>:`. A push only when the owner asks.
+- Run one test file: `python -I -m unittest discover -s tests -p "test_events.py"`; one test: add `-k <name>`.
+- A divergence between a spec and the code is flagged, not resolved: one dated line in `~/.claude/escalations.md` and
+  an item in the `To be confirmed` section of the spec; the task stops at that point until the owner rules.
+
+---
+
+## Milestone 0 — Foundation
+
+### Task 1: Package skeleton and test support
+
+**Spec:** `architecture.md` › Runtime, › Project structure, › Tests.
+
+**Files:**
+- Create: `pyproject.toml`, `src/ai_effort_ledger/__init__.py`, `tests/support.py`, `tests/test_package.py`
+
+**Interfaces:**
+- Produces: `tests/support.py`: `utc(text: str) -> datetime` (`"2026-11-10T09:00"` or with seconds and
+  milliseconds, read as UTC); `TemporaryFolder` (context manager, yields `Path`); at import it sets
+  `os.environ["AI_EFFORT_LEDGER_DEVELOPMENT"] = "1"`.
+
+- [ ] **Step 1: Write the failing tests** in `tests/test_package.py`:
+
+```python
+def test_version_is_development_version(self):
+    self.assertEqual(importlib.metadata.version("ai-effort-ledger"), "0.1.0.dev0")
+
+def test_command_entry_point(self):
+    names = {e.name for e in importlib.metadata.entry_points(group="console_scripts")}
+    self.assertIn("ai-effort-ledger", names)
+
+def test_only_tzdata_at_run_time(self):
+    self.assertEqual(importlib.metadata.requires("ai-effort-ledger"), ["tzdata"])
+```
+
+- [ ] **Step 2: Run and see it fail**: `python -I -m unittest discover -s tests -p "test_package.py"` → error,
+  package not found.
+- [ ] **Step 3: Write `pyproject.toml`** with `[build-system]` as in Global Constraints, `[project]` with `name`,
+  `version = "0.1.0.dev0"`, `description`, `readme = "README.md"`, `requires-python = ">=3.11"`,
+  `dependencies = ["tzdata"]`, and `[project.scripts] ai-effort-ledger = "ai_effort_ledger.cli:main"`; a package
+  docstring in `__init__.py`; then `uv venv` and `uv pip install -e .`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 2: Static check `tests/style.py` (gate G1)
+
+**Spec:** `architecture.md` › Tests; `lint-tool-2026-11.md` › Recommendation; `GLOSSARY.md`.
+
+**Gate G1, ruled 2026-11-19** (`architecture.md` › Tests): a word that the glossary marks _Avoid_ is named unless a
+glossary term or the title of the glossary holds it; an _Avoid_ entry of more than one word is named only as that
+sequence of words; the text in parentheses of an entry is not part of it; the check names only identifiers that the
+code defines (functions, classes, parameters, assigned names, attributes assigned on `self`, import aliases), not names
+it uses from other code.
+
+**Files:**
+- Create: `tests/style.py`, `tests/test_style.py`
+
+**Interfaces:**
+- Produces: `split_identifier(name: str) -> list[str]` (lower-case words of `snake_case` and `CamelCase`);
+  `named_words(glossary: str) -> tuple[frozenset[str], frozenset[tuple[str, ...]]]` (single words, sequences);
+  `check_file(path: Path, words: frozenset[str], sequences: frozenset[tuple[str, ...]]) -> list[str]` (findings as
+  `path:line: text`); `main(argv: list[str] | None = None) -> int` (0 without findings, 1 with findings). Reads
+  `GLOSSARY.md` beside `tests/`, checks `src/` and `tests/`, skips `__pycache__`.
+
+- [ ] **Step 1: Write the failing tests** with a glossary text and Python files written into a temporary folder:
+
+```python
+def test_split_identifier(self):
+    self.assertEqual(style.split_identifier("parseHTTPRecord_line"), ["parse", "http", "record", "line"])
+
+def test_named_word_in_defined_function(self):      # "def run_job(): ..." -> one finding naming "job"
+def test_word_of_a_glossary_term_is_allowed(self):  # "decision_request = 1" -> no finding
+def test_sequence_is_named_only_as_sequence(self):  # "effective_hours" named; "hours" alone named; "effective" not
+def test_parenthesis_is_not_part_of_the_entry(self):  # "_Avoid_: task (as the generic term)" names "task"
+def test_used_names_are_not_named(self):            # "sqlite3.connect(p, timeout=30)" -> no finding
+def test_import_alias_is_named(self):               # "import json as parser" -> one finding
+def test_substring_is_not_a_word(self):             # "async_reader", "importlib" -> no finding for sync/import
+def test_public_function_without_hints(self):       # "def f(a): ..." -> finding; "def _f(a)" -> none
+def test_overload_is_exempt(self):
+def test_line_longer_than_99_columns(self):         # 100 characters -> finding with its line number
+def test_syntax_fault_is_a_finding(self):
+def test_main_returns_1_with_findings_and_0_without(self):
+```
+
+- [ ] **Step 2: Run and see it fail**: `python -I -m unittest discover -s tests -p "test_style.py"`.
+- [ ] **Step 3: Write `tests/style.py`** with `ast` and `tokenize.open()` (encoding cookies and BOMs), counting
+  columns as characters of the line without its line break.
+- [ ] **Step 4: Run and see it pass**; then `python -I tests/style.py` on the tree → exit 0.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 3: GitHub Actions workflow
+
+**Spec:** `architecture.md` › Tests; acceptance criterion 8.
+
+**Files:**
+- Create: `.github/workflows/tests.yml`
+
+- [ ] **Step 1: Find the commit hashes** of the newest release tags of `actions/checkout` and `actions/setup-python`:
+  `gh api repos/actions/checkout/releases/latest --jq .tag_name`, then
+  `gh api repos/actions/checkout/commits/<tag> --jq .sha` (the same for `setup-python`).
+- [ ] **Step 2: Write the workflow**: on `push` and `pull_request`; matrix `os: [windows-latest, ubuntu-latest,
+  macos-latest]`, `python-version: ["3.11", "3.x"]`; steps: checkout at its hash, setup-python at its hash,
+  `python -m pip install -e .`, `python -I -m unittest discover -s tests`, `python -I tests/style.py` (D9). The job
+  sets no secret and has `permissions: contents: read`.
+- [ ] **Step 3: Check the pins**: `grep -cE "uses: [a-z/-]+@[0-9a-f]{40}$" .github/workflows/tests.yml` → `2`, and
+  `grep -c "uses:"` → `2`.
+- [ ] **Step 4: Verify on GitHub** after the owner allows a push: `gh run list --workflow tests.yml --limit 1` shows
+  six jobs passing.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 1 — Modules without dependencies: `events`, `platform`, `repository`, `language`
+
+### Task 4: `events` — values, encoding, and reading of newer schema versions
+
+**Spec:** `event-schema.md` › Fields, › Encoding; `architecture.md` › Runtime (versions); ADR 0023.
+
+**Files:**
+- Create: `src/ai_effort_ledger/events.py`, `tests/test_events.py`
+
+**Interfaces:**
+- Produces: `SCHEMA_VERSION = 1`; `Event = dict[str, Any]`; `KINDS: frozenset[str]` (the 16 kinds);
+  `FIELDS: frozenset[str]` (every field of › Fields); `FIXED_VALUES: dict[str, frozenset[str]]` for `kind`, `actor`,
+  `invocation`, `subagent_mode`, `tool_category`, `input_origin`, `decision_type`, `manual_mode`, `size_basis`,
+  `repo_basis`, `purge_reason`; `format_instant(instant: datetime) -> str`; `parse_instant(text: str) -> datetime`
+  (aware UTC, truncated to milliseconds; accepts an offset or `Z`); `version_key(text: str) -> tuple` (raises
+  `ValueError` for a wrong version); `writer_version() -> str` (`importlib.metadata.version("ai-effort-ledger")`);
+  `encode_event(event: Event) -> bytes` (D2; one line ending in `b"\n"`; `ValueError` for a `None` value);
+  `Decoded(state: str, event: Event | None, newer: bool)` with `state` in `"event"`, `"left_out"`, `"broken"`;
+  `decode_line(data: bytes) -> Decoded`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_instant_round_trip(self):
+    self.assertEqual(events.format_instant(support.utc("2026-11-19T08:30:00.125")),
+                     "2026-11-19T08:30:00.125Z")
+    self.assertEqual(events.parse_instant("2026-11-19T09:30:00.125+01:00"),
+                     support.utc("2026-11-19T08:30:00.125"))
+
+def test_version_order(self):
+    k = events.version_key
+    self.assertLess(k("1.9.0"), k("1.10.0"))
+    self.assertLess(k("1.3.0.dev0"), k("1.3.0"))
+    self.assertLess(k("1.3.0.dev0"), k("1.3.0.dev1"))
+    with self.assertRaises(ValueError):
+        k("v1.3")
+
+def test_encode_is_one_sorted_line(self):     # keys sorted, no spaces, ends with b"\n", UTF-8 letters kept
+def test_encode_refuses_null(self):           # {"model": None} -> ValueError
+def test_decode_event(self):                  # a valid schema 1 line -> state "event", newer False
+def test_decode_not_json_is_broken(self):
+def test_decode_missing_required_field_is_broken(self):    # schema 1 without "machine"
+def test_decode_unknown_kind_of_schema_1_is_broken(self):
+def test_newer_unknown_kind_is_left_out(self):             # schema 2, kind "future" -> "left_out", newer True
+def test_newer_unknown_fixed_value_is_left_out(self):      # schema 2, tool_category "paint"
+def test_newer_unknown_field_is_dropped(self):             # schema 2, field "x" -> "event", no "x", newer True
+def test_open_sets_pass_through(self):        # tokens {"reasoning_output": 5}, requests, price_factors kept
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `events.py`** with the names above. Required fields: `schema_version`, `source`, `event_uid`,
+  `timestamp`, `ingested_at`, `writer_version`, `actor`, `kind`, `machine`.
+- [ ] **Step 4: Run and see it pass**, then the full suite and `python -I tests/style.py`.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 5: `events` — keys, key order, merge rule, events that a command writes
+
+**Spec:** `event-schema.md` › Keys and invariants, › Encoding (event keys).
+
+**Files:**
+- Modify: `src/ai_effort_ledger/events.py`, `tests/test_events.py`
+
+**Interfaces:**
+- Produces: `EventKey` (frozen dataclass: `source: str`, `native_id: str | None`, `session_id: str | None`,
+  `event_uid: str | None`; `to_json() -> dict[str, str]`; `from_json(value: Mapping[str, str]) -> EventKey`);
+  `event_key(event: Event) -> EventKey`; `event_order(event: Event) -> tuple` (by `source`, `session_id`,
+  `event_uid`; an absent part before every text); `winning_copy(a: tuple[Event, str], b: tuple[Event, str]) ->
+  tuple[Event, str]` (pairs of event and segment name); `ledger_event(kind: str, actor: str, machine: str,
+  timestamp: datetime, fields: Mapping[str, Any]) -> Event` (source `ledger`, random UUID 4 `event_uid`,
+  `writer_version()`, no `ingested_at`: the store sets it).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_key_with_native_identifier(self):       # -> EventKey("claude-code-jsonl", native_id="m1")
+def test_key_without_native_identifier(self):    # -> source, session_id, event_uid
+def test_key_of_a_command_event(self):           # -> EventKey("ledger", event_uid=<uuid>)
+def test_key_json_forms(self):
+    self.assertEqual(events.EventKey("ledger", None, None, "u").to_json(),
+                     {"source": "ledger", "event_uid": "u"})
+def test_key_from_json_round_trip(self):         # the three forms
+def test_absent_part_sorts_first(self):          # session_id None before "a"
+def test_earliest_ingested_at_wins(self):
+def test_equal_instants_resolve_by_segment_name(self):
+    # same ingested_at: copy in "segments/a/2026-11.jsonl" wins over "segments/b/2026-11.jsonl"
+def test_ledger_event_fields(self):              # schema_version 1, actor, kind, UUID 4, no ingested_at
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Add the names above to `events.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 6: `platform` — folders, store identifier, installation identifier
+
+**Spec:** `architecture.md` › Files of a machine; `ingestion.md` › Store.
+
+**Files:**
+- Create: `src/ai_effort_ledger/platform/__init__.py`, `folders.py`, `identity.py`; `tests/test_platform.py`
+
+**Interfaces:**
+- Produces: `machine_folder(system: str, environ: Mapping[str, str], home: Path) -> Path`;
+  `default_store_folder(system: str, environ: Mapping[str, str], home: Path) -> Path`;
+  `store_identifier(store_folder: Path, system: str) -> str` (16 lower-case hexadecimal characters of SHA-256 of
+  the resolved absolute path; on Windows the path text in lower case first); `installation_identifier(system: str)
+  -> str | None`; `parse_ioreg(text: str) -> str | None`; `new_salt() -> str` and `salted_hash(identifier: str,
+  salt: str) -> str` (D11). `system` is the value of `platform.system()`: `"Windows"`, `"Linux"`, `"Darwin"`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_folders_windows(self):     # LOCALAPPDATA=C:\L -> C:\L\ai-effort-ledger\machine and ...\store
+def test_folders_linux_defaults(self):   # no XDG_* -> ~/.local/state/ai-effort-ledger/machine,
+                                         #               ~/.local/share/ai-effort-ledger/store
+def test_folders_linux_xdg(self):        # XDG_STATE_HOME, XDG_DATA_HOME set
+def test_folders_macos(self):            # ~/Library/Application Support/ai-effort-ledger/{machine,store}
+def test_store_identifier_windows_ignores_case(self):
+    self.assertEqual(platform.store_identifier(Path(r"D:\Work\Store"), "Windows"),
+                     platform.store_identifier(Path(r"d:\work\store"), "Windows"))
+def test_store_identifier_is_16_hex(self):
+def test_parse_ioreg(self):         # invented output with "IOPlatformUUID" = "0000-TEST" -> "0000-TEST"
+def test_salted_hash_depends_on_salt(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the functions.** `installation_identifier`: `winreg` `MachineGuid` of
+  `HKLM\SOFTWARE\Microsoft\Cryptography`; `/etc/machine-id`; `ioreg -rd1 -c IOPlatformExpertDevice`; `None` when
+  the operating system gives none.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 7: `platform` — the lock
+
+**Spec:** `architecture.md` › Concurrency.
+
+**Files:**
+- Create: `src/ai_effort_ledger/platform/lock.py`; Modify: `tests/test_platform.py`
+
+**Interfaces:**
+- Produces: `StoreLock(path: Path, limit_seconds: float = 600.0)`, a context manager; `LockUnavailable` (stop error:
+  `code = "lock_unavailable"`, `values = {"path": str}`, `exit_code = 1`).
+
+- [ ] **Step 1: Write the failing tests** (a second process holds the lock through `subprocess` and
+  `sys.executable`):
+
+```python
+def test_second_holder_waits_then_stops(self):   # limit 1 s while another process holds it -> LockUnavailable
+def test_lock_free_after_holder_exits(self):
+def test_lock_free_after_holder_is_killed(self): # the operating system releases it
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `StoreLock`**: `msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)` on Windows, `fcntl.flock(fd,
+  LOCK_EX | LOCK_NB)` elsewhere, a new try every 0.5 s until the limit.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 8: `platform` — scheduler entries
+
+**Spec:** `ingestion.md` › Frequency; `command-line.md` › Commands (`schedule`).
+
+**Files:**
+- Create: `src/ai_effort_ledger/platform/scheduler.py`; Modify: `tests/test_platform.py`
+
+**Interfaces:**
+- Produces: `ENTRY_NAME = "ai-effort-ledger-ingest"`; `SchedulerEntry(name: str, command: list[str], time: str)`;
+  `scheduler_kind(system: str, which: Callable[[str], str | None]) -> str` (`"windows"`, `"launchd"`, `"systemd"`,
+  `"cron"`); `entry_definition(kind: str, executable: Path, store_folder: Path, time: str) -> dict[str, str]`
+  (file name → text: Task Scheduler XML, launchd plist, systemd `.service` and `.timer`; for `"cron"` one line);
+  `show_entry(kind, run) -> SchedulerEntry | None`; `create_entry(kind, executable, store_folder, time, run, home)
+  -> SchedulerEntry`; `remove_entry(kind, run, home) -> bool`. `run: Callable[[list[str]],
+  subprocess.CompletedProcess]` is the only path to a real scheduler.
+
+- [ ] **Step 1: Write the failing tests** (a fake `run` records each argument list; no test touches a scheduler):
+
+```python
+def test_windows_definition(self):   # XML holds <StartWhenAvailable>true</StartWhenAvailable>,
+                                     # <Hidden>true</Hidden>, a daily trigger at 12:00, the command and
+                                     # "ingest --store <store>"
+def test_launchd_definition(self):   # Label ai-effort-ledger-ingest, StartCalendarInterval Hour 12 Minute 0
+def test_systemd_definition(self):   # OnCalendar=*-*-* 12:00:00 and Persistent=true
+def test_cron_is_one_line_to_show(self):   # "0 12 * * * <exe> ingest --store <store>"
+def test_create_replaces_existing_entry(self):    # Windows: schtasks /Create ... /F
+def test_remove_without_entry_returns_false(self):
+def test_time_must_be_hh_mm(self):   # "25:00" -> ValueError
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the functions**: Windows `schtasks /Query /TN <name> /XML`, `/Create /TN <name> /XML <file>
+  /F`, `/Delete /TN <name> /F`; macOS `~/Library/LaunchAgents/<name>.plist` with `launchctl bootstrap gui/<uid>` and
+  `bootout`; Linux `~/.config/systemd/user/<name>.{service,timer}` with `systemctl --user daemon-reload` and
+  `enable --now` / `disable --now`.
+- [ ] **Step 4: Run and see it pass**, then the full suite. Task 38 checks on the owner's Windows machine whether a
+  console window shows when the entry starts; if it shows, flag the divergence with "without a visible window where
+  the scheduler allows it" (`ingestion.md` › Frequency).
+- [ ] **Step 5: Checkpoint.**
+
+### Task 9: `platform` — time zone of the operating system (gate G3)
+
+**Spec:** `configuration.md` › Writes (Windows names), › To be confirmed (CLDR release).
+
+**Gate G3.** First a research note `docs/research/windows-zones-2026-11.md` from primary sources (the CLDR release
+notes and `common/supplemental/windowsZones.xml` of the release), with Best / Cleanest / Most general; then a ruling
+panel on the release and on how an update of the table reaches a release. The ruling becomes a sentence of
+`configuration.md`, and the `To be confirmed` item is deleted.
+
+**Files:**
+- Create: `src/ai_effort_ledger/platform/zones.py`, `windows_zones.py` (data: the territory `001` rows of the ruled
+  release, which its module docstring names); Modify: `tests/test_platform.py`
+
+**Interfaces:**
+- Produces: `WINDOWS_ZONES: dict[str, str]`; `windows_zone_to_iana(name: str) -> str | None`;
+  `system_time_zone(system: str, environ: Mapping[str, str], localtime: Path, read_registry: Callable[[], str |
+  None]) -> str | None`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_windows_name_converts(self):    # "W. Europe Standard Time" -> "Europe/Berlin"
+def test_unknown_windows_name(self):     # -> None, never a guess
+def test_linux_localtime_link(self):     # link to .../zoneinfo/Europe/Rome -> "Europe/Rome"
+def test_tz_variable_wins(self):         # TZ=":Europe/Rome" -> "Europe/Rome"
+def test_every_value_is_in_tzdata(self): # each value of WINDOWS_ZONES opens with zoneinfo after reset_tzpath
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the table and the functions**; Windows reads `TimeZoneKeyName` of
+  `HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation` with `winreg`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 10: `repository` — `.git`, remotes, and repository identity
+
+**Spec:** `ingestion.md` › Repository identity; ADR 0004, ADR 0018.
+
+**Files:**
+- Create: `src/ai_effort_ledger/repository/__init__.py`, `discovery.py`; `tests/test_repository.py`
+
+**Interfaces:**
+- Produces: `RepositoryIdentity(hint: str, basis: str)` (`basis` `"observed"` or `"inferred"`);
+  `normalize_remote(url: str) -> str | None` (`None` for a local folder or `file://`);
+  `find_git(folder: Path, home: Path) -> tuple[Path, Path] | None` (git folder, common git directory);
+  `resolve_folder(cwd: str, system: str, home: Path, preferred_remotes: Sequence[str], root_commits:
+  RootCommits) -> tuple[RepositoryIdentity | None, list[dict]]`; `RootCommits` (the content of `repositories.json`:
+  `load(path: Path)`, `save(path: Path)`, `get(common_dir: str) -> str | None`, `put(common_dir: str, commit: str)`).
+
+- [ ] **Step 1: Write the failing tests** (repositories built by hand in temporary folders):
+
+```python
+def test_normalize_remote(self):
+    n = repository.normalize_remote
+    self.assertEqual(n("https://user:secret@Example.org:8443/Team/App.git/"), "example.org/team/app")
+    self.assertEqual(n("git@example.org:Team/App.git"), "example.org/team/app")
+    self.assertEqual(n("ssh://git@example.org:22/team/app"), "example.org/team/app")
+    self.assertIsNone(n("file:///srv/app"))
+    self.assertIsNone(n(r"C:\repos\app"))
+    self.assertIsNone(n("/srv/git/app"))
+def test_preferred_remote_wins(self):          # ["upstream", "origin"] with both -> upstream
+def test_first_remote_by_name_otherwise(self):
+def test_local_remote_is_skipped(self):        # next remote, or the root commit
+def test_worktree_file_and_commondir(self):    # ".git" file "gitdir: ..." -> common dir through commondir
+def test_search_stops_at_home(self):           # repository at home -> no identity for a folder inside it
+def test_missing_folder_is_inferred(self):     # cwd gone -> nearest existing parent, basis "inferred"
+def test_foreign_path_is_not_resolved(self):   # "/home/vm/app" with system "Windows" -> None, no warning
+def test_config_include_is_not_read(self):     # [include] path=... gives no remote
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `discovery.py`**: read `config` with a small reader of `[remote "<name>"]` sections and their
+  `url`; never run git. The search also stops at the root of a drive.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 11: `repository` — the root commit from the object store
+
+**Spec:** `ingestion.md` › Repository identity (root commit, pack files, shallow clone).
+
+**Files:**
+- Create: `src/ai_effort_ledger/repository/objects.py`; Modify: `tests/test_repository.py`, `tests/support.py`
+  (builders `write_loose_object` and `write_pack` with whole objects, `OFS_DELTA`, and `REF_DELTA`)
+
+**Interfaces:**
+- Produces: `root_commit(common_dir: Path) -> str | None` (`None` for a shallow clone); `resolve_folder` of Task 10
+  uses it, keeps it in `RootCommits`, and returns the warning `{"code": "shallow_clone", "values": {"folder": ...}}`
+  for a shallow clone.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_root_commit_from_loose_objects(self):  # HEAD -> refs/heads/main -> 3 commits -> first commit
+def test_head_through_packed_refs(self):
+def test_root_commit_in_pack(self):             # whole commit objects in a version 2 pack and index
+def test_ofs_delta_commit(self):
+def test_ref_delta_commit(self):
+def test_first_parent_is_followed(self):        # a merge commit: the second parent is ignored
+def test_shallow_clone_gives_warning(self):     # "shallow" file -> None and code "shallow_clone"
+def test_identity_from_root_commit(self):       # no remote -> hint "root-commit:<hash>"
+def test_root_commit_is_kept(self):             # a second resolve reads no object (RootCommits holds it)
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `objects.py`** with `zlib`: loose objects, pack index version 2, object types 1 (commit),
+  6 (`OFS_DELTA`), 7 (`REF_DELTA`), and delta application (copy and insert instructions).
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 12: `language` — texts by code
+
+**Spec:** `command-line.md` › JSON documents (codes), › Reports (Italian); `GLOSSARY.md` (`_Italian_` lines).
+
+**Files:**
+- Create: `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+
+**Interfaces:**
+- Produces: `LANGUAGES = ("en", "it")`; `WARNING_CODES: frozenset[str]` (the 26 codes of the table);
+  `CONFIGURATION_ERROR_CODES = frozenset({"identity_rule_conflict", "category_rule_conflict",
+  "project_name_conflict"})`; `STOP_CODES: frozenset[str]` (the codes of stop errors, D10; each task that adds a stop
+  error adds its code and texts here); `message(code: str, values: Mapping[str, object], language: str) -> str`;
+  `label(key: str, language: str) -> str` (titles, states, column names).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_every_code_has_both_texts(self):
+def test_both_texts_name_the_same_values(self):       # same {placeholders} in "en" and "it"
+def test_codes_are_the_table_of_command_line(self):   # the 26 names, exactly
+def test_italian_states_use_glossary_terms(self):     # label("measured_day", "it") is the _Italian_ of
+                                                       # "Measured day" in GLOSSARY.md
+def test_values_are_not_translated(self):             # message keeps a project name as given
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the texts**: short sentences; the Italian text uses the `_Italian_` term of each glossary term.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 2 — `configuration`, `store`, `adapters`
+
+### Task 13: `configuration` — reading the machine and person configuration
+
+**Spec:** `configuration.md` › Layers, › Order, › Format, › Matching (patterns); `architecture.md` › Files of a
+machine; ADR 0017.
+
+**Files:**
+- Create: `src/ai_effort_ledger/configuration/__init__.py`, `values.py`, `machine.py`, `person.py`;
+  `tests/test_configuration.py`
+
+**Interfaces:**
+- Produces: `parse_duration(text: str, clock: bool = False) -> int` (`"1h30min"` → 5400; with `clock`, also `H:MM`);
+  `pattern_matches(pattern: str, text: str) -> bool` (`*` stands for any text, with regard to case);
+  `MachineConfiguration(machine: str, installation: str | None, salt: str | None, store: str | None, native_logs:
+  dict[str, list[str]])`; `read_machine_configuration(folder: Path) -> MachineConfiguration | None`;
+  `TimeZoneEntry(zone: str, start: datetime, line: int)`; `DayStartEntry(hour: time, start: date, line: int)`;
+  `ProjectName(id: str, name: str)`; `WorkItemName(project: str, id: str, name: str)`; `IdentityRule(project: str,
+  repository: str | None, folder: str | None, branch: str | None, first: date | None, last: date | None, line: int)`;
+  `CategoryRule(tool: str, category: str, line: int)`; `PersonConfiguration(time_zones, day_starts, projects,
+  work_items, identity_rules, category_rules, preferred_remotes: list[str], settle_time: int, report: dict[str,
+  object])`; `read_person_configuration(store_folder: Path) -> PersonConfiguration`; `ReportParameters` (frozen:
+  `idle_gap=600`, `minimum_attention=60`, `stale_limit=14400`, `headless_prompts=False`,
+  `timesheet_granularity=900`, `language="en"`); `resolve_parameters(options: Mapping[str, object], person:
+  PersonConfiguration) -> tuple[ReportParameters, dict[str, str]]` (name → layer `"option"`, `"person"`,
+  `"default"`); `ConfigurationUnreadable` (stop error `configuration_unreadable`, values `path` and `line`, exit 1);
+  `SetupRequired` (stop error `setup_required`, exit 1).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_duration_formats(self):
+    p = configuration.parse_duration
+    self.assertEqual((p("4h"), p("10min"), p("1h30min"), p("90s")), (14400, 600, 5400, 90))
+    self.assertEqual(p("1:30", clock=True), 5400)
+    with self.assertRaises(ValueError):
+        p("4 hours")
+def test_dated_values_as_toml_values_or_strings(self):   # D5: both forms give the same entries
+def test_defaults(self):          # preferred_remotes ["origin"], settle_time 14400, ReportParameters()
+def test_report_table_overrides_defaults(self):          # [report] idle_gap = "5min"
+def test_option_overrides_person(self):                  # layers "option", "person", "default"
+def test_later_phase_keys_are_accepted(self):            # [[label_key]], [[hourly_rate]], pseudonym
+def test_unreadable_file_names_the_line(self):           # ConfigurationUnreadable with line 3
+def test_machine_configuration_round_trip_in_reader(self):   # native_logs with Windows paths
+def test_pattern_matches(self):   # "mcp__*" matches "mcp__a__b"; "Edit" does not match "edit"
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the reader** with `tomllib`; a file that `tomllib` cannot read raises
+  `ConfigurationUnreadable` with the line of `TOMLDecodeError`; the ledger never uses part of a file.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 14: `configuration` — writes
+
+**Spec:** `configuration.md` › Writes; `command-line.md` › Configuration entries; `ingestion.md` › Store
+(installation identifier).
+
+**Files:**
+- Create: `src/ai_effort_ledger/configuration/writes.py`; Modify: `machine.py`, `tests/test_configuration.py`
+
+**Interfaces:**
+- Consumes: `StoreLock` (Task 7); `new_salt`, `salted_hash` (Task 6).
+- Produces: `ENTRY_KEYS: dict[str, tuple[str, ...]]` (`"time_zone": ("zone", "from")`, `"day_start": ("hour",
+  "from")`, `"project": ("id", "name")`, `"work_item": ("project", "id", "name")`, `"identity_rule": ("project",
+  "repository", "folder", "branch", "from", "to")`, `"category_rule": ("tool", "category")`);
+  `basic_string(value: str) -> str`; `append_entry(store_folder: Path, lock_path: Path, entry: str, values:
+  Mapping[str, str]) -> dict[str, str]`; `WrongValue` (stop error `wrong_value`, values `key` and `value`, exit 2);
+  `create_person_configuration(store_folder: Path, zone: str | None) -> list[dict[str, str]]`;
+  `write_machine_configuration(folder: Path, value: MachineConfiguration) -> None`;
+  `refresh_machine(value: MachineConfiguration | None, installation: str | None) -> tuple[MachineConfiguration,
+  bool]` (a new random machine identifier when there is none or when the salted hash differs; `True` when changed).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_append_writes_basic_strings_at_end(self):   # comments and layout of the file stay byte for byte
+def test_value_cannot_add_an_entry(self):            # name 'a"\n[[project]]\nid = "x' -> one entry, exact text
+def test_append_keeps_non_ascii_and_backslashes(self):   # folder r"D:\Lavoro\Città Nuova" reads back equal
+def test_wrong_values_stop_with_exit_2(self):        # zone "Mars/Base", hour "25:00", category "cooking",
+                                                     # time-zone "from" "2026-12-01" (needs RFC 3339 instant)
+def test_failed_read_restores_content(self):         # a reader that fails after the append -> old bytes back
+def test_create_person_configuration(self):
+    # zone "Europe/Rome" -> [[time_zone]] from 1970-01-01T00:00:00Z and [[day_start]] 00:00 from 1970-01-01
+def test_create_without_zone_writes_no_time_zone(self):
+def test_machine_configuration_written_whole(self):
+def test_new_machine_identifier_when_installation_changes(self):
+def test_no_check_when_system_gives_no_identifier(self):   # installation None -> machine kept
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `writes.py`**: validate each value first (a time zone opens with `zoneinfo.ZoneInfo`, `HH:MM`,
+  a tool category of `FIXED_VALUES` — copied as a constant, because `configuration` does not depend on `events`, a
+  duration, an instant or day of `command-line.md` › Form); take the lock; append; read the whole file again; on a
+  failed read write the old bytes back and raise. The command line normalizes `--repository` before it calls
+  `append_entry` (`cli` depends on `repository`).
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 15: `store` — segments, store metadata, frozen report files
+
+**Spec:** `ingestion.md` › Store; `architecture.md` › Concurrency; `event-schema.md` › Encoding.
+
+**Files:**
+- Create: `src/ai_effort_ledger/store/__init__.py`, `segments.py`, `files.py`; `tests/test_store.py`
+
+**Interfaces:**
+- Consumes: `encode_event`, `decode_line`, `format_instant` (Task 4).
+- Produces: `SegmentLine(segment: str, number: int, offset: int, data: bytes)` (`segment` is the path text
+  `segments/<machine>/<YYYY-MM>.jsonl`, `number` from 1); `segment_names(store_folder: Path) -> list[str]` (sorted as
+  text); `read_lines(store_folder: Path, segment: str, offset: int = 0) -> Iterator[SegmentLine]` (a last line without
+  `\n` is not given); `append_events(store_folder: Path, machine: str, events: Sequence[Event], now: datetime) ->
+  list[SegmentLine]` (sets `ingested_at` to `now`; segment of the UTC month of `now`; one `write` per line, then
+  `flush` and `os.fsync`); `read_label`, `write_label(store_folder, machine, label)`; `write_frozen(store_folder,
+  machine, frozen_id, document)`, `list_frozen(store_folder) -> list[tuple[str, str, dict]]`,
+  `remove_frozen(store_folder, machine, frozen_id, own_machine)`; `FrozenOtherMachine` (stop error
+  `frozen_other_machine`, values `id`, `machine`, exit 1); `TargetNotFound` (stop error `target_not_found`, values
+  `target`, exit 1).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_append_sets_ingested_at_and_month(self):   # now 2026-11-30T23:30Z -> segments/<m>/2026-11.jsonl
+def test_each_line_ends_with_line_break(self):
+def test_half_written_last_line_is_ignored(self):   # no line, no warning
+def test_broken_line_keeps_its_number(self):        # decode_line(...).state == "broken" at number 2
+def test_segment_names_sort_as_text(self):
+def test_label_round_trip_with_quotes(self):
+def test_frozen_files(self):                        # frozen/<m>/<id>.json written, listed, removed
+def test_frozen_remove_on_other_machine_stops(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `segments.py` and `files.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 16: `store` — purges
+
+**Spec:** `event-schema.md` › Keys and invariants (purges); `ingestion.md` › Store; ADR 0008, ADR 0015.
+
+**Files:**
+- Create: `src/ai_effort_ledger/store/purges.py`; Modify: `tests/test_store.py`
+
+**Interfaces:**
+- Consumes: `EventKey`, `event_key`, `version_key` (Tasks 4–5); `LockUnavailable` (Task 7).
+- Produces: `PurgeSet.from_events(purges: Iterable[Event]) -> PurgeSet`; `PurgeSet.blocks(event: Event) -> bool` (a
+  copy passes only when every purge that lists its key has a `corrected_version` and the copy's `writer_version` is
+  that version or newer); `PurgeSet.sessions_to_read(own_version: str, applied: set[str]) -> list[tuple[str, str]]`;
+  `rewrite_segment(store_folder: Path, segment: str, keep: Callable[[SegmentLine], bool], limit_seconds: float =
+  600.0) -> int` (lines removed; a new file in the same folder, then `os.replace`; a `PermissionError` retries every
+  0.5 s until the limit, then `LockUnavailable`).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_purge_without_corrected_version_blocks_for_good(self):
+def test_corrected_version_lets_newer_copies_pass(self):
+    # corrected "0.2.0": writer "0.1.0" blocked, "0.2.0" passes, "0.2.0.dev0" blocked, "0.3.0" passes
+def test_two_purges_of_one_key(self):        # one without corrected version -> blocked at any version
+def test_sessions_to_read(self):             # purge with corrected "0.2.0", own version "0.2.0" -> its sessions
+def test_older_version_leaves_the_purge(self):   # own version "0.1.0" -> no session
+def test_rewrite_removes_lines_in_one_step(self):
+def test_rewrite_retries_while_file_is_open(self):   # Windows only (skipUnless)
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `purges.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 17: Survey of native logs (gate G2)
+
+**Spec:** `claude-code-adapter.md` › To be confirmed (interruptions; subagent link without `agentId` and nested
+subagents; input keys of `MultiEdit` and `NotebookEdit`); `ingestion.md` › To be confirmed (orchestrated sessions);
+CLAUDE.md › Privacy.
+
+**Files:**
+- Create: `prototype/survey.py` (throw-away, not part of the package); `docs/research/native-log-survey-2026-11.md`
+
+The script reads a copy of the native logs (`--snapshot <folder>`, the layout of `prototype/validate.py`) and writes to
+`prototype/out/` only: counts of record types by `version`; key paths with the JSON type of their value; for user
+records, whether the text starts with `[Request interrupted by user` (a count, never the text); the values of
+`toolDenialKind`; for the tool results of `Agent` and `Task`, the JSON type of `toolUseResult` and whether it holds
+`agentId`; subagent files whose records name a subagent as parent; the key names of the input of `MultiEdit` and
+`NotebookEdit`. It prints no value of a free-text field.
+
+- [ ] **Step 1: Write the script** and run it on an invented folder made by hand: the output holds no text of the
+  invented records (a marker word in the input never appears in `prototype/out/`).
+- [ ] **Step 2: Gate G2.** Ask the owner to make the copy of the native logs and to run
+  `python -I prototype/survey.py --snapshot <folder>`, or to allow the run.
+- [ ] **Step 3: Write the research note** with ratios only, and give the findings to the owner in a ruling panel
+  for each `To be confirmed` item that a finding closes. Each ruling becomes a sentence of the spec, and the item is
+  deleted; an item that no sample can close keeps its trigger.
+- [ ] **Step 4: Write a fixture** in `tests/fixtures/claude_code/` for each new record form that the rulings add, by
+  hand, with invented text; Tasks 19–22 test it.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 18: `adapters` — interface, folders of native logs, reading of files
+
+**Spec:** `claude-code-adapter.md` › Native logs, › Session fields (entrypoint); `ingestion.md` › Adapters;
+`architecture.md` › Modules (`adapters`).
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/__init__.py`, `claude_code/__init__.py`, `discovery.py`, `reading.py`,
+  `tables.py`; `tests/test_adapter_claude_code.py`; `tests/fixtures/claude_code/` (first fixtures);
+  Modify: `tests/support.py` (builders of invented records: `prompt_record`, `output_record`, `tool_use`,
+  `tool_result_record`, `queue_record`, `write_session(folder, session_id, records, subagents)`)
+
+**Interfaces:**
+- Produces in `adapters`: `SessionFiles(tool: str, session_id: str, folder: Path, main: Path | None, subagents:
+  dict[str, Path])`; `ReadContext(machine: str, now: datetime, settle_time: int, native_id_owner: Callable[[str, str],
+  tuple[str, str] | None])`; `ReadResult(events: list[Event], held_back: set[tuple[str, str]], warnings: list[dict],
+  unknown_tools: set[str])`; `Retention(setting: str, days: int | None)` (`None` is no age limit);
+  `Adapter` (protocol: `source: str`, `tools: tuple[str, ...]`, `default_folders(environ, home, system) -> dict[str,
+  list[Path]]`, `retention(tool, environ, home, system) -> Retention`, `sessions(tool, folder) ->
+  list[SessionFiles]`, `read_sessions(sessions, context) -> ReadResult`); `ADAPTERS: tuple[Adapter, ...]`.
+  The adapter leaves `ingested_at`, `repo_hint`, and `repo_basis` to ingestion.
+- Produces in `claude_code`: `SOURCE = "claude-code-jsonl"`; `ENTRYPOINTS: dict[str, str]`; `read_file(path: Path) ->
+  tuple[list[tuple[int, dict]], bool, list[dict]]` (records with their line number, whether the last line is
+  half-written, warnings).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_default_folders(self):
+    # CLAUDE_CONFIG_DIR=X -> {"claude-code": [X/projects]}; else <home>/.claude/projects;
+    # Windows: <APPDATA>/Claude/local-agent-mode-sessions for "claude-desktop"; only folders that exist
+def test_sessions_of_a_folder(self):        # <f>/<sid>.jsonl and <f>/<sid>/subagents/agent-<a>.jsonl
+def test_desktop_folders_are_searched(self):   # every .claude/projects/ below the recorded folder
+def test_invalid_json_line_warns(self):     # code "invalid_record", values file and line, no event
+def test_invalid_utf8_line_is_invalid_record(self):      # Review Focus 5
+def test_partial_last_line_holds_back_without_warning(self):   # Review Focus 1
+def test_unknown_record_type_warns_once_per_type_and_version(self):
+def test_entrypoints(self):
+    # cli, local-agent -> interactive; sdk-cli, sdk-ts, sdk-py -> headless;
+    # "x-new" -> unknown with "unknown_entrypoint"; no entrypoint -> unknown, no warning
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the files.** `read_file` reads bytes line by line and decodes each line on its own.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 19: `adapters` — records to events
+
+**Spec:** `claude-code-adapter.md` › Records and events, › Tokens, › Requests and price factors;
+`event-schema.md` › Keys and invariants (prompts, one response on several lines); ADR 0024.
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/mapping.py`; Modify: `tests/test_adapter_claude_code.py`;
+  `tests/fixtures/claude_code/` (one file for each row of the table of records, one for the record types that give no
+  event, one for a version without `origin`)
+
+**Interfaces:**
+- Consumes: `read_file`, `ENTRYPOINTS` (Task 18); `parse_instant`, `format_instant` (Task 4).
+- Produces: `map_session(records: Sequence[SessionRecord], invocation: str, machine: str) -> tuple[list[Event],
+  list[dict]]` where `SessionRecord(agent: str, file_order: int, line: int, record: dict)`.
+
+- [ ] **Step 1: Write the failing tests**, one for each row, from its fixture:
+
+```python
+def test_response_on_three_lines_is_one_agent_output(self):
+    # tokens: largest value of each category; timestamp of the last line; native_id message.id
+def test_cache_write_5m_without_cache_creation(self):    # cache_creation_input_tokens 100, 1h 30 -> 70
+def test_absent_token_key_is_absent(self):
+def test_requests_and_price_factors(self):  # web_search 2 kept, web_fetch 0 not written; speed of last line
+def test_model_starting_with_angle_bracket_gives_no_event(self):
+def test_tool_use_gives_tool_call(self):    # native_id "tool_call:<id>", call_id
+def test_question_and_plan_approval(self):  # decision_request at tool call, decision actor human at result
+def test_permission_of_the_person(self):    # user_temporary -> decision_request + decision
+def test_permission_of_a_rule_gives_no_event(self):          # source "config"
+def test_unknown_permission_source_warns(self):
+def test_permission_with_two_tool_results_warns(self):       # "multi_tool_result_permission"
+def test_prompt_of_interactive_session(self):
+def test_prompt_of_headless_session_is_scripted_notification(self):
+def test_interruption_gives_no_prompt(self):
+def test_task_notification_coordinator_peer(self):
+def test_unknown_origin_kind_warns(self):
+def test_queued_message(self):              # event_uid "queued_message:<timestamp>:0" (D3)
+def test_queue_content_starting_with_angle_bracket_gives_no_event(self):
+def test_server_and_mcp_tool_use(self):
+def test_is_meta_gives_no_event(self):
+def test_record_types_without_event(self):  # the 19 types of the list: no event, no warning
+def test_prompt_without_origin(self):       # tags <task-notification -> notification; others no event
+def test_no_text_in_events(self):           # the marker word of every fixture is in no event
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `mapping.py`.** The adapter reads text only for the tests of the table and drops it.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 20: `adapters` — tool categories and size counters (gate G4)
+
+**Spec:** `claude-code-adapter.md` › Tool categories, › Size counters; `event-schema.md` › Keys and invariants (size
+counters); ADR 0012, ADR 0016.
+
+**Gate G4, ruled 2026-11-19** (`event-schema.md` › Keys and invariants): an empty text has no lines.
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/size.py`; Modify: `tables.py`, `mapping.py`,
+  `tests/test_adapter_claude_code.py`
+
+**Interfaces:**
+- Produces: `TOOL_CATEGORIES: dict[str, str]` (the table, 26 names); `count_lines(text: str) -> int`;
+  `file_extension(path: str) -> str | None`; `size_counters(tool_name: str, tool_input: dict, result_record: dict |
+  None, is_error: bool) -> dict[str, object]` (`lines_added`, `lines_removed`, `file_ext`, `size_basis`; empty dict
+  for no counters).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_categories(self):                  # each row of the table; "mcp__x__y" -> "other"
+def test_count_lines(self):
+    self.assertEqual((size.count_lines("a\nb"), size.count_lines("a\nb\n")), (2, 2))
+    self.assertEqual(size.count_lines(""), 0)
+def test_insertion_counts_no_removed_line(self):     # Edit with empty old_string -> lines_removed 0
+def test_patch_counts(self):                # structuredPatch hunks: "+" and "-" lines, size_basis "patch"
+def test_patch_without_hunks_falls_back_to_input(self):
+def test_edit_input(self):                  # new_string / old_string, size_basis "input"
+def test_multiedit_sums_items(self):
+def test_write_create_has_zero_removed(self):    # toolUseResult type "create"
+def test_write_update_without_patch_has_removed_absent(self):
+def test_notebookedit(self):                # new_source; removed absent; notebook_path
+def test_error_result_has_no_counters(self):
+def test_call_without_result_has_no_counters(self):
+def test_file_extension(self):
+    e = size.file_extension
+    self.assertEqual((e("a.PY"), e("a.tar.gz"), e(".bashrc"), e("Makefile")), ("py", "gz", None, None))
+def test_no_path_in_events(self):           # file_path of the fixture is in no event
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `size.py`** and call it from `mapping.py` when the tool result is known.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 21: `adapters` — subagents, copies of one record, event identifiers
+
+**Spec:** `claude-code-adapter.md` › Session fields; `event-schema.md` › Keys and invariants (identity, copies).
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/subagents.py`; Modify: `mapping.py`, `__init__.py`,
+  `tests/test_adapter_claude_code.py`
+
+**Interfaces:**
+- Produces: `link_subagents(events: list[Event], records: Sequence[SessionRecord]) -> None` (sets `parent_agent_id`
+  and `subagent_mode`); `event_identifiers(records: Sequence[SessionRecord]) -> dict[tuple[int, int], str]` (D3);
+  `deduplicate(records: Sequence[SessionRecord]) -> tuple[list[SessionRecord], list[dict]]` (the copy in the file of
+  the agent that the record names; `record_copies_differ` when copies differ in another field).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_main_agent_id_is_session(self):
+def test_subagent_id_from_file_name(self):
+def test_link_from_agent_result(self):      # toolUseResult.agentId -> parent_agent_id = agent of the call
+def test_background_mode(self):             # isAsync true, or input run_in_background true -> "background"
+def test_parent_input_is_notification(self):    # input_origin "parent"
+def test_copy_in_two_files_gives_one_event(self):
+def test_differing_copies_warn(self):
+def test_position_counts_across_files(self):    # main file first, then subagents by name, then lines
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `subagents.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 22: `adapters` — complete events and held-back events
+
+**Spec:** `ingestion.md` › Adapters; `claude-code-adapter.md` › Complete events; ADR 0020.
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/completeness.py`; Modify: `__init__.py`,
+  `tests/test_adapter_claude_code.py`
+
+**Interfaces:**
+- Produces: `complete_events(events: list[Event], records: Sequence[SessionRecord], settled: bool) -> tuple[list[Event],
+  bool]` (complete events, whether any event is held back); `settled` is true when no file of the session changed for
+  the settle time (`now - newest mtime >= settle_time`).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_last_response_is_held_back(self):      # no later record of the same agent
+def test_response_complete_after_later_record(self):
+def test_tool_call_waits_for_its_result(self):
+def test_provider_tool_complete_with_response(self):
+def test_subagent_waits_for_its_link(self):     # no Agent result yet -> all events of the subagent held back
+def test_settled_session_is_complete(self):     # call without result stored without counters;
+                                                # subagent without link has no subagent_mode
+def test_same_store_at_any_hour(self):          # read at t1 then at t2 > t1 -> union of stored events equal
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `completeness.py`** and use it in `read_sessions`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 23: `adapters` — forked sessions
+
+**Spec:** `claude-code-adapter.md` › Forks; `event-schema.md` › Keys and invariants (forks); D7.
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/forks.py`; Modify: `__init__.py`,
+  `tests/test_adapter_claude_code.py`
+
+**Interfaces:**
+- Produces: `assign_forks(sessions: dict[tuple[str, str], list[Event]], native_id_owner) -> list[dict]` (moves shared
+  events to the original, sets `forked_from = {"session_id": ..., "instant": ...}` on the events of the fork, returns
+  warnings `fork_original_unknown`).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_original_holds_own_records_in_shared_range(self):
+def test_fork_instant_is_last_shared_record(self):
+def test_both_or_neither_sort_by_identifier_and_warn(self):
+def test_fork_read_alone_uses_the_index(self):   # native_id_owner names the original
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `forks.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 24: `adapters` — retention settings
+
+**Spec:** `claude-code-adapter.md` › Retention; `ingestion.md` › Frequency; D6.
+
+**Files:**
+- Create: `src/ai_effort_ledger/adapters/claude_code/retention.py`; Modify: `__init__.py`,
+  `tests/test_adapter_claude_code.py`
+
+**Interfaces:**
+- Produces: `retention(tool: str, environ, home, system) -> Retention` (`claude-code`: `cleanupPeriodDays`, default
+  30; `claude-desktop`: `None` while `desktopSessionCleanupPeriodDays` is 0 or absent, otherwise the longer of the two
+  settings; managed `cleanupPeriodDays` alone when managed settings set it).
+
+- [ ] **Step 1: Verify the paths** of the user and managed settings files of each operating system with the
+  `claude-code-guide` agent (exact quotes with URLs); a path that the documentation does not give is not read.
+- [ ] **Step 2: Write the failing tests** with settings files in a temporary home:
+
+```python
+def test_default_claude_code(self):        # Retention("cleanupPeriodDays", 30)
+def test_user_setting(self):               # 60 -> 60
+def test_desktop_has_no_age_limit_by_default(self):
+def test_desktop_longer_of_two(self):      # desktop 90, cleanup 30 -> 90
+def test_managed_cleanup_applies_alone(self):
+```
+
+- [ ] **Step 3: Run and see it fail**, then write `retention.py`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 3 — `index`, `days`
+
+### Task 25: `index` — the local index
+
+**Spec:** `architecture.md` › Local index, › Report record; `event-schema.md` › Keys and invariants (merge rule); D4.
+
+**Files:**
+- Create: `src/ai_effort_ledger/index.py`, `tests/test_index.py`
+
+**Interfaces:**
+- Consumes: `segment_names`, `read_lines`, `SegmentLine` (Task 15); `decode_line`, `event_key`, `winning_copy`
+  (Tasks 4–5).
+- Produces: `INDEX_FORMAT = 1`; `SegmentState(segment: str, size: int, chained_hash: str)`; `BrokenLine(segment: str,
+  number: int)`; `LocalIndex(path: Path)` (opens SQLite in WAL mode with `timeout=30`) with: `update(store_folder:
+  Path) -> IndexUpdate(lines_read: int, broken: list[BrokenLine], newer: bool)`; `rebuild(store_folder: Path) ->
+  None`; `sessions_between(start: datetime, end: datetime) -> set[tuple[str, str]]` (`tool`, `session_id`);
+  `session_events(sessions: Iterable[tuple[str, str]]) -> list[Event]`; `confirmations_of(days: Iterable[str]) ->
+  list[Event]`; `intervals_between(start: datetime, end: datetime) -> list[Event]` (manual entries and interval
+  annotations); `bookkeeping() -> list[Event]` (retractions, purges, session annotations); `has_key(key: EventKey) ->
+  bool`; `native_id_owner(source: str, native_id: str) -> tuple[str, str] | None`; `segment_states() ->
+  list[SegmentState]`; `counts() -> tuple[int, int]`; `IndexBusy` (stop error `index_busy`, exit 1). Every query gives
+  one copy for each key: the winning copy.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_update_reads_only_new_bytes(self):     # lines_read == number of appended lines
+def test_moved_last_line_reads_segment_again(self):   # after rewrite_segment
+def test_removed_segment_removes_its_events(self):
+def test_other_format_rebuilds(self):           # stored format 0 -> rebuilt
+def test_two_updates_add_each_line_once(self):  # two connections, same segment
+def test_chained_hash(self):
+    # h0 = sha256(b"").digest(); h1 = sha256(h0 + line1).digest(); segment_states shows h_n.hex()
+def test_query_gives_winning_copy(self):        # two machines hold one key: earliest ingested_at
+def test_wal_mode(self):                         # PRAGMA journal_mode == "wal"
+def test_newer_schema_is_flagged(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `index.py`**: tables `meta(format)`, `segments(name, size, last_offset, last_hash, chained)`,
+  `lines(segment, offset, number, key, tool, session_id, kind, timestamp, ingested_at, day, start, end, event)` with
+  primary key `(segment, offset)` and `INSERT OR IGNORE`; one transaction for the lines of a segment.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 26: `days` — local days
+
+**Spec:** `metrics.md` › Days and weeks; `configuration.md` › Format (dated facts); `command-line.md` › Form (day and
+instant values); ADR 0022.
+
+**Files:**
+- Create: `src/ai_effort_ledger/days.py`, `tests/test_days.py`; Modify: `tests/support.py` (calls
+  `days.use_tzdata_only()` at import)
+
+**Interfaces:**
+- Consumes: `TimeZoneEntry`, `DayStartEntry`, `PersonConfiguration` (Task 13).
+- Produces: `use_tzdata_only() -> None`; `tzdata_version() -> str`; `LocalDays(time_zones: Sequence[TimeZoneEntry],
+  day_starts: Sequence[DayStartEntry])` (raises `DatedFactConflict`) with `local_day(instant: datetime) -> date`
+  (raises `NoLocalDay`), `day_parts(day: date) -> list[tuple[datetime, datetime]]` (UTC, start included, end
+  excluded; two parts when a journey to the west crosses the start of the day), `local_instant(text: str) ->
+  datetime`, `parse_day(text: str, now: datetime) -> date`; `NoLocalDay` (stop error `no_local_day`, values
+  `instant`, exit 1); `DatedFactConflict` (stop error `dated_fact_conflict`, values `first`, `second`, exit 1);
+  `NoTimeZone` (stop error `time_zone_missing`, exit 1: the history is empty).
+
+- [ ] **Step 1: Write the failing tests** (time zone `Europe/Rome` from `1970-01-01T00:00:00Z`, day start 00:00):
+
+```python
+def test_local_day(self):              # 2026-11-10T23:30Z -> 2026-11-11
+def test_day_start_hour(self):         # day start 04:00: local 02:00 of 11-11 -> 2026-11-10
+def test_daylight_saving_days(self):   # 2026-03-29 lasts 23 h, 2026-10-25 lasts 25 h
+def test_change_of_day_start(self):    # 00:00 -> 04:00 from 2026-12-01: 2026-11-30 lasts 28 h
+def test_journey_east(self):           # Asia/Tokyo from 2026-12-01T00:00Z: 2026-12-01 starts at 2026-11-30T23:00Z
+                                       # and lasts 16 h
+def test_journey_west_gives_two_parts(self):
+    # America/New_York from 2026-12-01T03:00Z: 2026-11-30 has [11-29T23:00Z, 11-30T23:00Z) and
+    # [12-01T03:00Z, 12-01T05:00Z); 2026-12-01 has [11-30T23:00Z, 12-01T03:00Z) and [12-01T05:00Z, 12-02T05:00Z)
+def test_instant_before_history_stops(self):     # NoLocalDay names the instant
+def test_two_entries_with_same_start_stop(self): # DatedFactConflict names both
+def test_repeated_local_time_is_first(self):     # "2026-10-25T02:30" -> 2026-10-25T00:30Z
+def test_skipped_local_time_is_after_change(self):   # "2026-03-29T02:30" -> 2026-03-29T01:00Z
+def test_today_and_yesterday(self):
+def test_tzdata_only(self):                      # zoneinfo.TZPATH == () after use_tzdata_only()
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `days.py`.** A local day starts at the first instant whose local date and time reach the day
+  start hour of that date; `day_parts` walks the transitions of the time-zone history and of the zone inside the day.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 4 — `ingestion`, `selection`, `metrics`
+
+### Task 27: `ingestion` — record of sources, sessions to read, lost events
+
+**Spec:** `architecture.md` › Data flow (step 4), › Files of a machine (`sources.json`); `ingestion.md` › Frequency,
+› Store.
+
+**Files:**
+- Create: `src/ai_effort_ledger/ingestion/__init__.py`, `state.py`; `tests/test_ingestion.py`
+
+**Interfaces:**
+- Produces: `SourcesState(folders: dict[str, str], files: dict[str, tuple[int, int]], held_back: dict[str,
+  list[str]], applied_purges: list[str])` with `load(path: Path) -> SourcesState` and `save(path: Path)`;
+  `sessions_to_read(state: SourcesState, found: Sequence[SessionFiles], purged: Sequence[tuple[str, str]]) ->
+  list[SessionFiles]`; `lost_events(state: SourcesState, folder: str, retention: Retention, now: datetime) -> dict |
+  None` (warning `lost_events`, values `folder`, `from`, `to`); `held_back_sessions(machine_folder: Path,
+  store_folder: Path, system: str) -> set[tuple[str, str]]` (used by reports for `held_back_events`).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_changed_file_selects_its_whole_session(self):   # size or mtime of one subagent file changed
+def test_held_back_session_is_read_again(self):
+def test_purged_session_is_read_again(self):
+def test_unchanged_session_is_not_read(self):
+def test_lost_events_after_long_gap(self):     # previous 2026-10-01, now 2026-11-10, retention 30 days
+def test_no_lost_events_without_age_limit(self):         # Retention(..., None)
+def test_no_lost_events_at_first_ingestion(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `state.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 28: `ingestion` — the ingestion
+
+**Spec:** `architecture.md` › Data flow (steps 1–11); `ingestion.md` › Adapters, › Store, › Repository identity;
+acceptance criteria 1 and 6.
+
+**Files:**
+- Create: `src/ai_effort_ledger/ingestion/run.py`; Modify: `__init__.py`, `tests/test_ingestion.py`
+
+**Interfaces:**
+- Consumes: Tasks 7, 10–11, 13–16, 18–27.
+- Produces: `SourceResult(source: str, folder: str, new_events: int, sessions_held_back: int)`;
+  `IngestionResult(sources: list[SourceResult], warnings: list[dict])`; `run_ingestion(machine: MachineConfiguration,
+  machine_folder: Path, store_folder: Path, person: PersonConfiguration, adapters: Sequence[Adapter], now: datetime,
+  home: Path, system: str) -> IngestionResult`; `DevelopmentVersion` (stop error `development_version`, exit 1),
+  raised before the lock when `writer_version()` has a development mark and `AI_EFFORT_LEDGER_DEVELOPMENT` is not
+  `1`.
+
+- [ ] **Step 1: Write the failing tests** (native logs written by `support.write_session` in a temporary home):
+
+```python
+def test_second_ingestion_adds_nothing(self):       # acceptance criterion 1
+def test_events_get_repository_identity(self):      # repo_hint and repo_basis "observed"
+def test_cwd_with_non_ascii_letters(self):          # Review Focus 2
+def test_missing_native_log_folder(self):           # Review Focus 4: new_events 0, no stop
+def test_purged_key_is_not_appended(self):
+def test_corrected_version_brings_corrected_events(self):    # acceptance criterion 6
+def test_blocked_copies_leave_own_segments(self):   # step 10
+def test_unknown_tool_warns_once_unless_category_rule(self): # rule "mcp__*" -> "other" stops the warning
+def test_key_already_stored_is_not_appended(self):  # also from another machine's segment
+def test_development_version_needs_variable(self):
+def test_counts_by_folder(self):                    # SourceResult per folder; sessions_held_back
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `run.py`** in the order of the eleven steps; repository identity is resolved once for each
+  folder in one ingestion, and `repositories.json` keeps root commits.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 29: `selection` — the events of a report
+
+**Spec:** `architecture.md` › Data flow (report), › Report record; `ingestion.md` › Store (broken lines);
+`metrics.md` › Declared values (retractions).
+
+**Files:**
+- Create: `src/ai_effort_ledger/selection.py`, `tests/test_selection.py`
+
+**Interfaces:**
+- Consumes: `LocalIndex` (Task 25); `LocalDays` (Task 26); `PurgeSet` (Task 16); `ReportParameters` (Task 13).
+- Produces: `Selection(first: date, last: date, session_events: list[Event], confirmations: list[Event],
+  manual_entries: list[Event], annotations: list[Event], retractions: list[Event], segments: list[SegmentState],
+  broken: list[BrokenLine], newer: bool, warnings: list[dict])`; `select(index: LocalIndex, store_folder: Path,
+  days: LocalDays, first: date, last: date, parameters: ReportParameters, held_back: set[tuple[str, str]]) ->
+  Selection`; `cancelled(retractions: Sequence[Event]) -> set[EventKey]` (a retraction that a retraction cancels
+  cancels nothing).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_whole_sessions_with_margin(self):  # an event 3 h before the period start belongs to a session with an
+                                            # event inside -> selected; margin = max(stale_limit, idle_gap)
+def test_confirmations_by_day(self):
+def test_intervals_that_intersect(self):    # manual entry crossing the period start
+def test_bookkeeping_at_any_instant(self):  # retraction and purge from months before
+def test_retraction_of_retraction_brings_back(self):
+def test_purged_events_left_out(self):
+def test_broken_lines_warn_and_are_recorded(self):    # warning "broken_line", values segment and line
+def test_held_back_session_warns(self):     # "held_back_events"
+def test_newer_schema_warns(self):          # "newer_schema_version"; newer is True (D8)
+def test_empty_index_gives_same_selection(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `selection.py`**; it brings the index up to date first and takes no lock.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 30: `metrics` — spans and human time
+
+**Spec:** `metrics.md` › Human time, › Uncertainty; ADR 0021.
+
+**Files:**
+- Create: `src/ai_effort_ledger/metrics/__init__.py`, `spans.py`, `human.py`; `tests/test_metrics.py`
+
+**Interfaces:**
+- Produces: `Span = tuple[int, int]` (milliseconds since the epoch, start included, end excluded); `union(spans:
+  Iterable[Span]) -> list[Span]`, `intersect(a, b) -> list[Span]`, `subtract(a, b) -> list[Span]`, `total(spans) ->
+  int`; `HumanInterval(start: int, end: int, signal: Event, kind: str)` (`kind` `"signal_gap"`, `"response"`,
+  `"minimum_attention"`; a signal gap belongs to its later signal); `MetricsParameters(idle_gap: int,
+  minimum_attention: int, stale_limit: int, headless_prompts: bool)` (seconds; `cli` builds it from
+  `ReportParameters`, because `configuration` is not below `metrics`); `human_signals(events: Sequence[Event],
+  headless_prompts: bool) -> list[Event]`; `human_intervals(events: Sequence[Event], parameters: MetricsParameters)
+  -> list[HumanInterval]`; `human_time_at_gaps(events, parameters, window: Span) -> dict[int, int]` (idle gaps 300,
+  600, 900 seconds and the one in use → milliseconds of human time inside `window`); `unknown_invocation_share(events,
+  parameters, window: Span) -> float`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_span_operations(self):
+def test_signal_gap(self):                  # prompts 09:00 and 09:05 -> 5 min, belongs to the 09:05 prompt
+def test_gap_longer_than_idle_gap(self):    # 09:00 and 09:11 -> two minimum attentions, 2 min
+def test_response_interval(self):           # output 10:30, prompt 10:34 -> 4 min
+def test_background_output_starts_no_response(self):
+def test_decision_request_starts_response(self):
+def test_rule_decision_is_no_signal(self):
+def test_headless_prompts_parameter(self):  # "yes" -> signals; default "no" -> none
+def test_one_stream_across_sessions(self):  # an instant counts once
+def test_idle_gaps_5_10_15(self):
+def test_unknown_invocation_share(self):    # 1 of 4 signals -> 0.25
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `spans.py` and `human.py`**; events sort by `timestamp`, then `event_order`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 31: `metrics` — turns, agent time, blocked time
+
+**Spec:** `metrics.md` › Agent time, › Blocked time; `claude-code-adapter.md` › Tool categories (waits for
+subagents).
+
+**Files:**
+- Create: `src/ai_effort_ledger/metrics/agent.py`; Modify: `__init__.py`, `tests/test_metrics.py`
+
+**Interfaces:**
+- Produces: `Turn(agent: tuple[str, str, str], start: int, end: int)` (`tool`, `session_id`, `agent_id`);
+  `AgentPart(start: int, end: int, agent: tuple[str, str, str], event: Event)` (the part between two consecutive
+  events of a turn, without blocked time and waits for foreground subagents, with the event that ends it);
+  `BlockedInterval(start: int, end: int, request: Event)`; `turns(events, stale_limit: int) -> list[Turn]`;
+  `agent_parts(events, parameters) -> list[AgentPart]`; `blocked_intervals(events) -> list[BlockedInterval]`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_turn_from_input_to_last_output(self):
+def test_tool_execution_is_part_of_turn(self):
+def test_interruption_ends_turn(self):
+def test_stale_turn_ends_at_last_event(self):   # 08:00, 08:01 call, 13:00 result, 13:01 -> turns 1 + 1 min
+def test_blocked_time_is_subtracted(self):
+def test_foreground_wait_is_subtracted(self):
+def test_absent_mode_counts_as_foreground(self):
+def test_background_wait_is_not_subtracted(self):
+def test_decision_without_decision_ends_at_next_event(self):
+def test_subagent_has_own_turns(self):
+def test_records_out_of_order_give_same_agent_time(self):   # Review Focus 3
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `agent.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 32: `metrics` — manual entries and activity classes of the person
+
+**Spec:** `metrics.md` › Declared values (manual entries), › Activity classes.
+
+**Files:**
+- Create: `src/ai_effort_ledger/metrics/classes.py`; Modify: `__init__.py`, `tests/test_metrics.py`
+
+**Interfaces:**
+- Produces: `ManualPart(start: int, end: int, entry: Event)`; `manual_parts(entries: Sequence[Event], human:
+  list[Span]) -> tuple[list[ManualPart], list[dict]]` (`overlapping`: the whole interval; `additional`: the interval
+  without measured human time, with a `manual_entry_overlap` warning for each removed overlap); `activity_classes(human:
+  list[Span], agent: list[Span], blocked: list[Span], window: Span) -> dict[str, int]` (keys `person_only`,
+  `supervised`, `unattended`, `blocked`, `idle`; the values add up to the window); `Metrics(human:
+  list[HumanInterval], manual: list[ManualPart], agent: list[AgentPart], blocked: list[BlockedInterval], warnings:
+  list[dict])`; `compute_metrics(session_events: Sequence[Event], manual_entries: Sequence[Event], parameters:
+  MetricsParameters) -> Metrics`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_overlapping_entry_merges_by_union(self):
+def test_additional_entry_counts_outside_measured_time(self):   # and warns
+def test_classes_table(self):        # one instant of each row of the table
+def test_present_person_and_blocked_agent_is_person_only(self):
+def test_classes_add_up_to_window(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `classes.py` and `compute_metrics`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 33: Scenarios of the prototype on the core
+
+**Spec:** `architecture.md` › Tests (scenario tests); `validation-2026-11.md`; acceptance criterion 3.
+
+**Files:**
+- Create: `tests/test_scenarios.py`; Modify: `tests/support.py` (`scenario(records, subagents=None) -> Metrics`: writes
+  the native logs, reads them with the adapter as a settled session, and computes the metrics with defaults)
+
+- [ ] **Step 1: Write the scenarios** with the values of `prototype/tests/test_scenarios.py`, in the native record
+  forms of the adapter fixtures (a subagent links through `toolUseResult.agentId`):
+
+```python
+def test_example_morning(self):
+    # 09:00 prompt, 09:05 queued message, 09:20-10:00 permission of the person, 10:10-10:25 foreground
+    # subagent, 10:30 output, 10:34 prompt, 10:35 output
+    # human 10 min; agent 50 min; blocked 40 min;
+    # classes person_only 5, supervised 5, unattended 45, blocked 39 (minutes)
+def test_overnight_notification(self):        # agent 90, human 2, unattended 90
+def test_rule_permission(self):               # agent 2, human 1, no decision event
+def test_permission_overnight(self):          # blocked 779, agent 2, class blocked 778
+def test_question_to_the_person(self):        # blocked 3, agent 2, human 4
+def test_background_subagent(self):           # agent 3
+def test_parallel_sessions_one_stream(self):  # human 18
+def test_alternating_sessions(self):          # human 18 together; 4 for the sessions one by one
+def test_programmatic_session(self):          # human 0, unattended 8
+def test_midnight_split(self):                # one hour from 23:30 local -> 30 + 30 min in two local days
+def test_stale_turn(self):                    # turns 2 min
+def test_prompt_without_origin(self):         # "<command-message>" text is a prompt; "<task-notification>"
+                                              # is a notification; isMeta gives no event
+```
+
+- [ ] **Step 2: Run** (the modules exist): any failure is a defect of the core or of the port; fix the core when the
+  spec supports the hand value, and flag when the spec and the hand value disagree.
+- [ ] **Step 3: Run the full suite.**
+- [ ] **Step 4: Set the Backlog task to Done.**
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 5 — `attribution`
+
+### Task 34: `attribution` — identity rules and category rules
+
+**Spec:** `configuration.md` › Matching; `metrics.md` › Attribution; ADR 0009.
+
+**Files:**
+- Create: `src/ai_effort_ledger/attribution/__init__.py`, `rules.py`; `tests/test_attribution.py`
+
+**Interfaces:**
+- Consumes: `IdentityRule`, `CategoryRule`, `pattern_matches` (Task 13).
+- Produces: `pattern_narrower(p: str, q: str) -> bool`; `folder_matches(rule_folder: str, folder: str) -> bool`;
+  `more_specific(x: IdentityRule, y: IdentityRule) -> bool`; `project_of(repository: str | None, folder: str | None,
+  branch: str | None, day: date, rules: Sequence[IdentityRule]) -> tuple[str | None, dict | None]` (the project, or
+  `None` and an `identity_rule_conflict` error with the rules; without a matching rule, the repository identity
+  itself); `category_of(tool_name: str, stored: str, rules: Sequence[CategoryRule]) -> tuple[str, dict | None]`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_pattern_narrower(self):
+    self.assertTrue(rules.pattern_narrower("feat/*", "*"))
+    self.assertTrue(rules.pattern_narrower("feat/a", "feat/*"))
+    self.assertFalse(rules.pattern_narrower("*", "feat/*"))
+def test_folder_matches_inside_and_separators(self):   # r"D:\Work" matches "d:/work/app"
+def test_unix_folder_matches_with_case(self):          # "/home/a/App" does not match "/home/a/app"
+def test_foreign_folder_compares_as_text(self):        # a virtual-machine path in an event
+def test_date_range_both_ends_included(self):
+def test_most_specific_rule_wins(self):
+def test_equal_specificity_is_configuration_error(self):   # unattributed + identity_rule_conflict
+def test_default_rule_only_without_matching_rule(self):
+def test_category_rule_replaces_stored_category(self):
+def test_category_conflict_keeps_stored_category(self):    # category_rule_conflict
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `rules.py`** with the narrower-pattern test of `configuration.md` › Matching: P is narrower than
+  Q when Q matches P with each `*` of P replaced by a character that only a `*` of Q matches.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 35: `attribution` — projects, work items, annotations, the split rule, figures by bucket
+
+**Spec:** `metrics.md` › Attribution, › Declared values (manual entries), › Activity classes; ADR 0018, ADR 0019,
+ADR 0021.
+
+**Files:**
+- Create: `src/ai_effort_ledger/attribution/names.py`, `annotations.py`, `split.py`; Modify: `__init__.py`,
+  `tests/test_attribution.py`, `tests/test_scenarios.py`
+
+**Interfaces:**
+- Consumes: `Metrics`, `Span`, spans functions (Tasks 30–32); `LocalDays` (Task 26); the event lists of a
+  `Selection` (Task 29) as values, because `selection` is not below `attribution`.
+- Produces: `Bucket = tuple[str | None, str | None]` (project identifier, work item identifier; `(None, None)` is the
+  unattributed time); `default_name(identifier: str) -> str`; `project_names(identifiers: Iterable[str], person:
+  PersonConfiguration) -> tuple[dict[str, str], list[dict]]`; `split_human(intervals: Sequence[HumanInterval]) ->
+  list[tuple[Span, Event]]`; `BucketFigures(human_time: int, with_manual: int, agent_time: int, blocked_time: int,
+  activity_classes: dict[str, int], inferred_human_share: float, inferred_agent_share: float)` (milliseconds);
+  `Attribution` with `figures(window: Span) -> dict[Bucket, BucketFigures]`, `names: dict[str, str]`,
+  `work_item_names: dict[tuple[str, str], str]`, `configuration_errors: list[dict]`, `warnings: list[dict]`;
+  `attribute(session_events: Sequence[Event], annotations: Sequence[Event], manual_entries: Sequence[Event], metrics:
+  Metrics, person: PersonConfiguration, days: LocalDays) -> Attribution`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_default_names(self):        # "example.org/team/app" -> "app"; "root-commit:<40 hex>" -> first 12
+def test_equal_default_names_take_more_path(self):   # "a/x/app", "b/y/app" -> "x/app", "y/app"
+def test_name_given_to_two_projects_is_error(self):  # project_name_conflict, both identifiers
+def test_event_takes_folder_of_previous_event(self):
+def test_session_annotation_overrides(self):
+def test_work_item_without_project_keeps_project(self):
+def test_project_without_work_item_removes_work_item(self):
+def test_work_item_on_unattributed_event_warns(self):    # work_item_without_project
+def test_overlapping_annotations_apply_in_timestamp_order(self):
+def test_split_rule_earliest_end_wins(self):
+def test_agent_time_divides_at_events(self):
+def test_blocked_time_follows_its_request(self):
+def test_overlapping_manual_entry_takes_interval(self):  # and warns manual_entry_overlap
+def test_latest_overlapping_entry_wins(self):
+def test_declared_project_unknown_warns(self):
+def test_inferred_shares(self):
+def test_project_classes_have_no_idle(self):
+def test_parts_add_up_to_human_time(self):           # acceptance criterion 4, measured part
+```
+
+- [ ] **Step 2: Add scenarios** to `tests/test_scenarios.py`: two parallel sessions of two projects (split rule),
+  overlapping annotations, a manual entry of each mode, work across the start of a report period.
+- [ ] **Step 3: Run and see it fail**, then write the files.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 6 — `declared`, `setup`
+
+### Task 36: `declared` — timesheet confirmations and declared days
+
+**Spec:** `metrics.md` › Declared values; ADR 0011, ADR 0014; acceptance criteria 4 and 5.
+
+**Files:**
+- Create: `src/ai_effort_ledger/declared.py`, `tests/test_declared.py`
+
+**Interfaces:**
+- Consumes: `Attribution`, `Bucket`, `BucketFigures` (Task 35); `Metrics`, `MetricsParameters` (Tasks 30–32);
+  `LocalDays` (Task 26); the confirmations and the cancelled keys of a `Selection` (Task 29) as values.
+- Produces: `Declaration(latest: Event | None, warnings: list[dict])`; `latest_confirmation(confirmations:
+  Sequence[Event], cancelled: set[EventKey]) -> Declaration`; `TimesheetLine(bucket: Bucket, measured: int,
+  with_manual: int, declared: int | None)` (seconds); `DayTimesheet(day: date, state: str, total: int, lines:
+  list[TimesheetLine], human_time_at_gaps: dict[int, int] | None, unknown_invocation_share: float, agent_time: int,
+  presence_span: int | None, warnings: list[dict])`; `DayFigures(timesheet: DayTimesheet, person: BucketFigures,
+  buckets: dict[Bucket, BucketFigures])` (what `reports` reads, so that it never imports `attribution`);
+  `day_figures(day: date, attribution: Attribution, metrics: Metrics, confirmations: Sequence[Event], cancelled:
+  set[EventKey], days: LocalDays, parameters: MetricsParameters) -> DayFigures`;
+  `whole_seconds(parts: Mapping[Bucket, int]) -> dict[Bucket, int]` (D12).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_latest_by_timestamp_then_key(self):
+def test_retracting_latest_brings_back_earlier(self):
+def test_all_retracted_is_measured_day(self):
+def test_confirmation_not_seen(self):          # acceptance criterion 5: two machines, no replaces -> warning
+def test_chain_through_retracted_confirmation(self):    # not a warning
+def test_confirmation_before_replaced(self):
+def test_declared_total_is_sum_of_entries(self):         # acceptance criterion 4, declared part
+def test_declared_below_measured_warns_per_project(self):    # also a project without entry
+def test_entry_without_work_item_stays_in_project(self):
+def test_measured_day_total_is_union_with_manual(self):
+def test_whole_seconds_add_up(self):           # 3 parts of 1500 ms, 1500 ms, 1000 ms -> 2, 1, 1 seconds
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `declared.py`** (confirmations part).
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 37: `declared` — timesheet proposal
+
+**Spec:** `metrics.md` › Declared values (proposal); `command-line.md` › Timesheet.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/declared.py`, `tests/test_declared.py`, `tests/test_scenarios.py`
+
+**Interfaces:**
+- Produces: `proposal(with_manual: Mapping[Bucket, int], granularity: int, total: int | None = None, given:
+  Mapping[Bucket, int] | None = None) -> dict[Bucket, int]` (seconds); `SetAboveTotal` (stop error
+  `set_above_total`, exit 1).
+
+The division of a total, when the shares alone do not determine it:
+
+```python
+units, rest = divmod(remaining_total, granularity)
+quotas = {b: units * value / measured_sum for b, value in shares.items()}
+result = {b: int(q) for b, q in quotas.items()}
+order = sorted(shares, key=lambda b: (-(quotas[b] - int(quotas[b])), bucket_order(b)))
+for b in order[: units - sum(result.values())]:
+    result[b] += 1
+result = {b: n * granularity for b, n in result.items()}
+result[order[0]] += rest
+```
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_rounds_up_to_granularity(self):      # 50 min, 15 min granularity -> 60 min
+def test_zero_entries_are_left_out(self):
+def test_total_divides_by_shares(self):       # total 8 h over 3 h / 1 h measured -> 6 h / 2 h
+def test_rest_below_one_unit_to_largest_remainder(self):   # total 8:05 -> 5 min to the first of the order
+def test_given_entries_and_total(self):       # --set A=2h --total 8h -> rest divides among others
+def test_rest_without_other_entry_is_unattributed(self):
+def test_set_above_total_stops(self):
+def test_total_below_measured_is_allowed(self):   # warning on the declared day, not here
+```
+
+- [ ] **Step 2: Add the scenarios** "timesheet proposal" and "division of a given total" to
+  `tests/test_scenarios.py`.
+- [ ] **Step 3: Run and see it fail**, then write `proposal`.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 38: `setup` — setup steps and the scheduled ingestion
+
+**Spec:** `command-line.md` › Setup, › Commands (`schedule`); `ingestion.md` › Frequency; `configuration.md` ›
+Writes (first person configuration).
+
+**Files:**
+- Create: `src/ai_effort_ledger/setup.py`, `tests/test_setup.py`
+
+**Interfaces:**
+- Consumes: Tasks 6–9, 13–14, 18, 24, 28.
+- Produces: `SetupContext(system: str, environ: Mapping[str, str], home: Path, now: datetime, executable: Path, run:
+  Callable, installation: str | None, ask: Callable[[str], str] | None)` (`ask` is `None` when standard input is not
+  a terminal); `SetupOptions(store: Path | None, label: str | None, native_logs: list[tuple[str, str]], schedule:
+  bool | None, time: str)`; `SetupResult(machine: str, store: Path, configuration_created: bool, entries:
+  list[dict], retention: list[dict], schedule: SchedulerEntry | None, ingest: IngestionResult)`;
+  `run_setup(options: SetupOptions, context: SetupContext) -> SetupResult`.
+
+- [ ] **Step 1: Write the failing tests** (temporary home; fake `run`; no real scheduler):
+
+```python
+def test_first_setup_creates_all(self):       # machine.toml, configuration.toml, label, first ingestion
+def test_second_setup_changes_only_options(self):
+def test_recorded_folder_stays(self):         # a folder the person added is kept
+def test_claude_config_dir_is_recorded(self):
+def test_store_option_is_written(self):
+def test_no_label_without_terminal(self):
+def test_schedule_only_with_consent(self):    # schedule None and no terminal -> shown, not created
+def test_retention_is_shown_with_advice(self):
+def test_windows_zone_unknown_writes_no_time_zone(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `setup.py`** in the order of the seven steps.
+- [ ] **Step 4: Run and see it pass**, then the full suite. On the owner's Windows machine, with the owner's consent,
+  create the entry once, check whether a console window shows when it starts, remove it, and flag a divergence
+  (Task 8).
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 7 — `reports`
+
+### Task 39: `reports` — report record and JSON documents
+
+**Spec:** `command-line.md` › JSON documents, › Reports, › Output; `architecture.md` › Report record;
+`metrics.md` › Reproducibility, › Uncertainty.
+
+**Files:**
+- Create: `src/ai_effort_ledger/reports/__init__.py`, `record.py`, `documents.py`; `tests/test_reports.py`
+
+**Interfaces:**
+- Consumes: `DayTimesheet`, `DayFigures` (Tasks 36–37); `Selection` (Task 29); `tzdata_version` (Task 26).
+- Produces: `report_record(parameters: ReportParameters, person: PersonConfiguration, selection: Selection,
+  configuration_errors: list[dict], ledger: str, tzdata: str) -> dict`; `timesheet_document(days:
+  Sequence[DayTimesheet], names: Names) -> dict`; `day_document(figures: DayFigures, names: Names) -> dict`;
+  `sessions_document(day: date, sessions: list[dict]) -> dict`; `entries_document(day: date, events: list[Event]) ->
+  dict`; `Names(projects: dict[str, str], work_items: dict[tuple[str, str], str])`. Keys exactly as the table of
+  › JSON documents; a project or work item is
+  `{"id": ..., "name": ...}` or `null`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_record_holds_versions_parameters_rules_facts_segments(self):
+def test_timesheet_keys(self):   # days[*]: day, state, total, human_time_at_idle_gaps (measured only; keys
+                                 # "300", "600", "900"), unknown_invocation_share, entries[*] with project,
+                                 # work_item, measured, with_manual_entries, declared, inferred_*_share
+def test_unattributed_is_null(self):
+def test_day_keys(self):
+def test_durations_are_whole_seconds(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `record.py` and `documents.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 40: `reports` — text output
+
+**Spec:** `command-line.md` › Output, › Reports; the texts of `language` (Task 12).
+
+**Files:**
+- Create: `src/ai_effort_ledger/reports/text.py`; Modify: `tests/test_reports.py`
+
+**Interfaces:**
+- Produces: `format_duration(seconds: int) -> str` (`H:MM`, whole minutes, seconds left out, hours beyond 24 kept);
+  `render(document: dict, language: str) -> str` (one table for each section; columns separated by two spaces; the
+  first column left-aligned, numbers right-aligned; titles and states from `language.label`).
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_format_duration(self):
+    self.assertEqual((text.format_duration(5459), text.format_duration(91800)), ("1:30", "25:30"))
+def test_timesheet_table_english(self):
+def test_timesheet_table_italian(self):    # states "giorno misurato" / "giorno dichiarato" from the glossary
+def test_names_and_notes_stay_as_written(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `text.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 41: `reports` — frozen reports and their differences
+
+**Spec:** `command-line.md` › Frozen reports, › JSON documents (`frozen show`); `architecture.md` › Report record.
+
+**Files:**
+- Create: `src/ai_effort_ledger/reports/frozen.py`; Modify: `tests/test_reports.py`
+
+**Interfaces:**
+- Consumes: `write_frozen`, `list_frozen`, `remove_frozen` (Task 15).
+- Produces: `freeze(store_folder: Path, machine: str, document: dict, note: str | None, now: datetime) -> str` (UUID 4
+  identifier; the file holds the document, `note`, and `frozen_at`, D13); `differences(frozen: dict, current: dict) ->
+  tuple[list[dict], list[dict]]` (`differences` for each day, project, and work item whose figures differ, with the
+  frozen value and the value of now; `changed` for parameters, rules, and dated facts); `latest_frozen_by_day(frozen:
+  Sequence[dict]) -> dict[str, dict]`.
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_freeze_keeps_json_also_for_text_output(self):
+def test_differences_of_a_changed_rule(self):    # an identity rule added after the freeze
+def test_changed_parameters(self):               # idle_gap 10min -> 5min
+def test_latest_frozen_holds_each_day(self):     # two frozen reports overlap; the later frozen_at wins
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `frozen.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 8 — `cli`
+
+### Task 42: `cli` — parser, output, exit codes, guards
+
+**Spec:** `command-line.md` › Form, › Output, › Exit codes, › Setup (last paragraph), › JSON documents;
+`architecture.md` › Runtime, › Modules (`cli`).
+
+**Files:**
+- Create: `src/ai_effort_ledger/cli/__init__.py`, `arguments.py`, `output.py`; `tests/test_cli.py`
+
+**Interfaces:**
+- Produces: `main(argv: list[str] | None = None) -> int` (calls `days.use_tzdata_only()`; maps stop errors to their
+  exit code; `argparse` errors to 2); `build_parser() -> argparse.ArgumentParser` (global `--store`, `--json`,
+  `--language en|it`; report parameters `--idle-gap`, `--minimum-attention`, `--stale-limit`, `--headless-prompts
+  yes|no`, `--timesheet-granularity`); `Outcome(document: dict, warnings: list[dict], configuration_errors:
+  list[dict], incomplete: bool)`; `emit(outcome: Outcome, command: str, as_json: bool, language: str, stdout, stderr)
+  -> int` (warnings to standard error, each line starting `warning:`; the JSON envelope `command`, `warnings`,
+  `configuration_errors`, each with `code`, `values`, `message`; exit 3 when `incomplete` or a configuration error
+  exists); `Context` (machine folder, store folder, machine and person configuration, now, system, home) with
+  `require_setup()` and `before_write()` (development guard, installation check).
+
+- [ ] **Step 1: Write the failing tests** (every test gives `--store` and a temporary home through the environment):
+
+```python
+def test_unknown_command_exits_2(self):
+def test_wrong_duration_exits_2(self):
+def test_command_before_setup_exits_1_and_asks_for_setup(self):
+def test_version_works_before_setup(self):
+def test_help_lists_commands(self):        # "--help" and "<command> --help" exit 0 before setup
+def test_json_envelope(self):              # command, warnings, configuration_errors with code/values/message
+def test_warnings_go_to_standard_error(self):
+def test_italian_messages(self):
+def test_writing_command_refused_for_development_version(self):   # variable unset -> exit 1
+def test_new_machine_identifier_after_profile_copy(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `__init__.py`, `arguments.py`, `output.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 43: `cli` — setup, schedule, ingest, machine label, config, index, version
+
+**Spec:** `command-line.md` › Commands, › Setup, › Configuration entries, › JSON documents.
+
+**Files:**
+- Create: `src/ai_effort_ledger/cli/setup_actions.py`, `store_actions.py`; Modify: `tests/test_cli.py`
+
+- [ ] **Step 1: Write the failing tests**, one for each command, text and JSON:
+
+```python
+def test_setup_json(self):        # machine, store, configuration_created, schedule, ingest
+def test_schedule_show_create_remove(self):   # remove without entry -> warning no_schedule_entry, exit 0
+def test_ingest_counts_and_lost_events_exit_3(self):
+def test_machine_label(self):
+def test_config_show_layers_and_errors_exit_0(self):
+def test_config_add_each_entry(self):         # --repository URL is normalized first
+def test_config_add_wrong_value_exits_2(self):
+def test_index_rebuild_counts(self):
+def test_version_shows_tzdata(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write the two files.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 44: `cli` — annotate, entries, timesheet confirmations, retractions, purge
+
+**Spec:** `command-line.md` › Commands, › Timesheet, › Purge; `event-schema.md` › Fields; ADR 0014, ADR 0015.
+
+**Files:**
+- Create: `src/ai_effort_ledger/cli/entry_actions.py`; Modify: `tests/test_cli.py`
+
+- [ ] **Step 1: Write the failing tests**:
+
+```python
+def test_annotate_session_and_interval(self):
+def test_annotate_unknown_session_exits_1(self):
+def test_annotate_ambiguous_session_needs_tool(self):
+def test_entry_add_unattributed(self):        # --project - or no --project
+def test_timesheet_confirm_without_options(self):     # confirms the proposal shown by "timesheet <day>"
+def test_timesheet_confirm_set_and_total(self):
+def test_timesheet_confirm_future_day_exits_1(self):
+def test_confirm_names_latest_in_replaces(self):
+def test_confirm_warns_held_back_and_exits_0(self):
+def test_confirm_warns_when_replaced_is_later(self):  # clocks differ -> confirmation_before_replaced
+def test_timesheet_retract(self):
+def test_entries_lists_by_local_day(self):
+def test_retract_and_retract_retraction(self):
+def test_purge_by_key_and_by_writer_version(self):
+def test_purge_needs_yes_without_terminal(self):      # written false
+def test_purge_forget_with_corrected_version_exits_2(self):
+def test_purge_warns_key_source_gone(self):
+def test_purge_with_corrected_version_names_sessions(self):
+```
+
+- [ ] **Step 2: Run and see it fail.**
+- [ ] **Step 3: Write `entry_actions.py`.**
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 45: `cli` — reports, sessions, frozen reports; report tests
+
+**Spec:** `command-line.md` › Reports, › Frozen reports, › JSON documents; acceptance criterion 9.
+
+**Files:**
+- Create: `src/ai_effort_ledger/cli/report_actions.py`, `tests/test_reports_output.py`,
+  `tests/fixtures/expected/` (one `.txt` and one `.json` for each command and language)
+
+**Interfaces:**
+- Consumes: Tasks 25–41. `cli` runs `select` → `compute_metrics` → `attribute` → `day_figures` → documents
+  (`architecture.md` › Modules: `reports` imports neither `metrics` nor `attribution`).
+
+- [ ] **Step 1: Write the fixture stores** in `tests/support.py` (`fixture_store(name)`): a measured day; a declared
+  day; manual entries of both modes; annotations; a retraction; a frozen period with a later rule change.
+- [ ] **Step 2: Write the failing report tests**: for every command of `command-line.md` › Commands, the text and
+  the JSON output in English and Italian against the expected files; the comparison replaces `record.ledger`,
+  `record.tzdata`, store paths, and frozen identifiers with fixed marks.
+- [ ] **Step 3: Write `report_actions.py`**; a report with `--freeze` takes the lock (`architecture.md` ›
+  Concurrency). Write each expected file by hand from the specs before its test passes, never by copying the
+  output.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+- [ ] **Step 5: Checkpoint.**
+
+## Milestone 9 — Suites across modules, benchmark, end of the phase
+
+### Task 46: Store tests with two machines
+
+**Spec:** `architecture.md` › Tests (store tests); acceptance criteria 2, 5, 6.
+
+**Files:**
+- Create: `tests/test_store_machines.py`; Modify: `tests/support.py` (`sync_copy(source_store, target_store,
+  cut_last_line: bool)`: a file-sync service that copies segments, with a delay shown as a half-written last line)
+
+- [ ] **Step 1: Write the tests**: half-written last lines; broken lines; purges with and without a corrected version
+  across machines; timesheet confirmations of one day from two machines before and after the copy (latest wins,
+  `confirmation_not_seen`); frozen report removal from the other machine.
+- [ ] **Step 2: Run**; fix the core where a test fails, flag where the spec is silent.
+- [ ] **Step 3: Run the full suite.**
+- [ ] **Step 4: Set the Backlog task to Done.**
+- [ ] **Step 5: Checkpoint.**
+
+### Task 47: Order tests
+
+**Spec:** `architecture.md` › Tests (order tests); acceptance criterion 2.
+
+**Files:**
+- Create: `tests/test_order.py`
+
+- [ ] **Step 1: Write the tests**: the same native logs read in shuffled file order give the same store (same keys,
+  same fields except `ingested_at`); segments of two machines indexed in both orders give the same reports; the report
+  of one day equals that day inside a report of a week; the three cases of `ingestion.md` › Adapters are the only
+  differences.
+- [ ] **Step 2: Run**; fix or flag.
+- [ ] **Step 3: Run the full suite.**
+- [ ] **Step 4: Set the Backlog task to Done.**
+- [ ] **Step 5: Checkpoint.**
+
+### Task 48: Privacy test
+
+**Spec:** `architecture.md` › Tests (privacy test); acceptance criterion 7; ADR 0003.
+
+**Files:**
+- Create: `tests/test_privacy.py`
+
+- [ ] **Step 1: Write the test**: ingest every fixture of `tests/fixtures/claude_code/`; every line of the store
+  holds only fields of `events.FIELDS` with `schema_version` 1; no text value of the fixtures (prompts, responses,
+  tool input, code, file paths of tool input) appears in any segment, read as bytes.
+- [ ] **Step 2: Run**; a failure is a defect of the adapter.
+- [ ] **Step 3: Run the full suite.**
+- [ ] **Step 4: Set the Backlog task to Done.**
+- [ ] **Step 5: Checkpoint.**
+
+### Task 49: Benchmark (gate G5)
+
+**Spec:** `architecture.md` › Tests (benchmark), › Release; acceptance criterion 10.
+
+**Files:**
+- Create: `tests/benchmark.py`
+
+**Interfaces:**
+- Produces: `main(argv: list[str] | None = None) -> int` with `--days 30 --sessions 10 --lines 1000` (defaults) and
+  `--folder <temporary folder>`; it writes invented native logs with the record types of the fixtures, runs the
+  first ingestion and `report timesheet` of one month through `cli.main`, and prints the seconds of each and the
+  processor (`platform.processor()` or `platform.machine()`).
+
+- [ ] **Step 1: Write the script** and run it with `--days 1 --sessions 2 --lines 50`: it completes and prints two
+  times.
+- [ ] **Step 2: Gate G5.** Ask the owner to run `python -I tests/benchmark.py` on a laptop.
+- [ ] **Step 3: Write `docs/research/benchmark-<yyyy>-<mm>.md`** with the seconds and the processor; the targets are
+  less than 60 s for the first ingestion and less than 5 s for the timesheet.
+- [ ] **Step 4: If a target fails**, profile with `cProfile`, fix, and run again.
+- [ ] **Step 5: Checkpoint.**
+
+### Task 50: End of the phase
+
+**Spec:** `product.md` › Phase 1 (acceptance criteria), › Phases; CLAUDE.md › Documents.
+
+- [ ] **Step 1: Check each acceptance criterion** against the table below; each has a passing test or a dated note.
+- [ ] **Step 2: Check the `To be confirmed` sections**: every item marked "before the end of Phase 1" or "in Phase 1"
+  is closed by a ruling.
+- [ ] **Step 3: Update `README.md`**: installation (`uv tool install git+<repository URL>@v<version>`), `setup`, the
+  daily timesheet.
+- [ ] **Step 4: Run the full suite, the static check, and the workflow** on GitHub; recommend `/effort xhigh` to the
+  owner for the final verification pass, and wait.
+- [ ] **Step 5: At merge**, set the status line of this plan to `Status: completed` and the Backlog tasks to Done.
+
+## Acceptance criteria and their tasks
+
+| Criterion | Tasks |
+|---|---|
+| 1. After `setup`, all native logs in retention are stored; a second `ingest` adds none | 28, 38, 43 |
+| 2. Same store at any hour and in any order; same reports from segments in any order | 22, 25, 46, 47 |
+| 3. Prototype scenarios give the hand-computed figures | 30–33 |
+| 4. Parts add up to the day: measured, with manual entries, declared | 35, 36 |
+| 5. A day confirmed on two machines shows the latest confirmation and a warning | 36, 46 |
+| 6. Purge with a corrected version gives corrected events; without one keeps keys out | 16, 28, 46 |
+| 7. No text of the fixtures in the store | 19, 20, 48 |
+| 8. Tests pass on Windows, Linux, macOS with Python 3.11 and the newest release | 3, 50 |
+| 9. Report tests of every command, text and JSON, English and Italian | 45 |
+| 10. Benchmark: first ingestion < 1 min, timesheet of a month < 5 s | 49 |

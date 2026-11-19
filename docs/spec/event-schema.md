@@ -173,9 +173,9 @@ version of the ledger exist, asks to update the ledger, and completes with the e
   Otherwise they are the lines of the new text and of the replaced text in the tool input, with `size_basis` `input`; a
   whole-file write that the source reports as a new file has zero lines removed, and one that the source does not report
   as new has lines removed absent. A tool call without a result, or whose result the source marks as an error, gets no
-  size counters. The lines of a text are its line breaks, plus one when the text does not end with a line break; the
-  file extension is the part of the file name after its last dot, in lower case; a name without a dot, or whose only dot
-  is its first character, has no file extension.
+  size counters. An empty text has no lines; the lines of another text are its line breaks, plus one when the text does
+  not end with a line break. The file extension is the part of the file name after its last dot, in lower case; a name
+  without a dot, or whose only dot is its first character, has no file extension.
 - The tool category comes from a table of the adapter; an unknown tool name gets `other`, and ingestion warns about it
   (ADR 0012, [ingestion.md](ingestion.md)). Category rules ([configuration.md](configuration.md)), matched on the tool
   name, replace the stored category at report time, so a tool that the adapter cannot know, such as a tool of an MCP

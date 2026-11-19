@@ -180,10 +180,14 @@ the package installed in editable mode (`uv pip install -e .`).
 
 A GitHub Actions workflow, `.github/workflows/tests.yml`, runs the tests after each push and each pull request on
 Windows, Linux, and macOS, with Python 3.11 and the newest Python release, and then runs the static check
-`python -I tests/style.py`: it parses every file of the package and of the tests, names identifiers that hold a whole
-word that the glossary marks _Avoid_ (it reads them from [GLOSSARY.md](../../GLOSSARY.md)), public functions without
-type hints, and lines longer than 99 columns ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). The workflow
-uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`, each fixed to a commit hash.
+`python -I tests/style.py`: it parses every file of the package and of the tests, and names public functions without
+type hints, lines longer than 99 columns, and identifiers that the code defines and that hold a word that the glossary
+marks _Avoid_ ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). It reads the _Avoid_ words from
+[GLOSSARY.md](../../GLOSSARY.md), without the text in parentheses of an entry; a word that a glossary term or the title
+of the glossary holds is not named, because an _Avoid_ word is wrong only for its own term; an entry of more than one
+word is named only as that sequence of words. Names that the code uses from other code, such as the standard library,
+are not checked. The workflow uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`,
+each fixed to a commit hash.
 
 The validation on real native logs is not a test: it runs by hand on a copy of the native logs, writes only to a folder
 that git ignores, and its ratios go to `docs/research/`.
