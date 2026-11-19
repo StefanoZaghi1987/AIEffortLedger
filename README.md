@@ -11,34 +11,30 @@ system, and it works for one person or a team.
 
 ## Status
 
-Phase 0 (specification, prototype, validation, review) is complete. There is no installable tool yet.
-
-## Roadmap
-
-| Phase | Content |
-|---|---|
-| 0 | Glossary, specifications, ADRs, measurement prototype, validation, review — done |
-| 1 | Core: store, Claude Code adapter (also Claude Desktop), manual entries, timesheet entries, identity rules, split rule, scheduled ingestion, daily timesheet per project |
-| 2 | Attribution and reports: work items, releases and milestones, periods, declared usage, list-price cost, subscription division |
-| 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (open: an MCP server over the command line, ingestion of events that other programs write in the normalized form); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
-| 4 | Team: team export, merge, team reports |
-| 5 | Estimation: estimate-versus-actuals dataset and estimator |
-| 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |
-
-Each phase starts with the specification of the points that the `To be confirmed` sections of the specifications list
-for it, and with an implementation plan.
+Phase 0 (specification, prototype, validation, review) is complete. Phase 1 is in specification; there is no
+installable tool yet. The content of each phase is in [docs/spec/product.md](docs/spec/product.md).
 
 ## Documents
 
+Read them in this order:
+
 | Document | Content |
 |---|---|
+| [docs/spec/product.md](docs/spec/product.md) | Objective, persons, non-goals, phases, scope and acceptance criteria of Phase 1 |
 | [GLOSSARY.md](GLOSSARY.md) | Terms, with the Italian equivalent used in reports and skills |
 | [docs/spec/metrics.md](docs/spec/metrics.md) | How events become effort |
-| [docs/spec/event-schema.md](docs/spec/event-schema.md) | The normalized event |
-| [docs/spec/ingestion.md](docs/spec/ingestion.md) | How sources reach the store |
-| [docs/adr](docs/adr) | Architecture decisions, one per file |
-| [docs/research](docs/research) | Point-in-time research |
+| [docs/spec/event-schema.md](docs/spec/event-schema.md) | The normalized event and its encoding |
+| [docs/spec/ingestion.md](docs/spec/ingestion.md) | How sources reach the store, and the store |
+| [docs/spec/claude-code-adapter.md](docs/spec/claude-code-adapter.md) | How native logs of Claude Code and Claude Desktop become events |
+| [docs/spec/configuration.md](docs/spec/configuration.md) | Where settings and rules live, their format, and how they are written |
+| [docs/spec/command-line.md](docs/spec/command-line.md) | Commands, options, output, exit codes, reports |
+| [docs/spec/architecture.md](docs/spec/architecture.md) | Modules, data flow, files of a machine, local index, concurrency, tests |
+| [docs/adr](docs/adr) | Architecture decisions, one per file; the status line of each tells which later ADR changes it |
+| [docs/research](docs/research) | Point-in-time research; not updated after its date |
 | [prototype](prototype) | Throw-away measurements on real logs, scenario tests (`python -I -m unittest discover -s prototype/tests`), and validation |
+
+A specification with open points ends with a `To be confirmed` section: each open point names the phase that specifies
+it, or the event that lets the ledger specify it, such as a real sample of a native log.
 
 ## Principles
 

@@ -9,6 +9,5 @@ __pycache__/
 dist/
 build/
 
-# Local stores, wherever a person places them inside the repository
-*.ledger.sqlite
-*.ledger.sqlite-*
+# Local data of agent tools
+.claude/

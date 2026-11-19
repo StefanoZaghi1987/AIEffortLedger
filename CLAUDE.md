@@ -12,9 +12,10 @@
 - Open points live in the `## To be confirmed` section of the spec they concern. They close by deletion when the owner
   rules: the ruling becomes a sentence in the body or an ADR.
 - `docs/adr/`: one decision per file; only for decisions that are hard to reverse, surprising, and a real trade-off.
-  After the first commit of an ADR, only its status line changes, except the removal of private data (see Privacy),
-  which never changes the decision.
-- `docs/research/`: dated, point-in-time notes; ratios only.
+  Once an ADR is on `master`, only its status line changes, except the removal of private data (see Privacy), which
+  never changes the decision. On a feature branch, an ADR that is not yet on `master` is edited directly.
+- `docs/research/`: dated, point-in-time notes; ratios only, except the run times and the processor of the benchmark
+  ([architecture.md](docs/spec/architecture.md) › Tests), which measures invented data.
 - A divergence between documentation and code is flagged, not resolved silently: one dated line in
   `~/.claude/escalations.md` and an item in the `To be confirmed` section of the spec.
 
@@ -25,6 +26,20 @@
 - Never copy prompt, response, tool input, or code text out of transcripts, also not into tests or fixtures.
 - Personal measurements go only to `prototype/out/`, which git ignores.
 - Never run git inside a folder taken from a transcript; read the `.git` files instead (ADR 0004).
+
+## Core
+
+- `src/ai_effort_ledger/` is the product. Its modules, their dependencies, and their build order follow
+  [docs/spec/architecture.md](docs/spec/architecture.md); a module never imports a module that depends on it.
+- Tests: `python -I -m unittest discover -s tests`, in a virtual environment with the package installed in editable mode
+  (`uv pip install -e .`). Write the failing test first. Fixtures are written by hand with invented text (see Privacy).
+- Only the standard library and `tzdata` at run time, and `flit_core` to build
+  ([build-tool-2026-11.md](docs/research/build-tool-2026-11.md)). Ask the owner before any other dependency, also one
+  for development only.
+- Names in code use the glossary terms (`human_time`, `timesheet_confirmation`, `event_key`), never a term under
+  _Avoid_. Public functions have type hints. Python code follows PEP 8, with lines wrapped at 99 columns; docstrings
+  are in English.
+- Tests never read the native logs, the store, or the configuration of the machine: they use temporary folders.
 
 ## Prototype
 
