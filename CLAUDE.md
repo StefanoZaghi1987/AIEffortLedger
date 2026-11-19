@@ -36,7 +36,8 @@
   ([build-tool-2026-11.md](docs/research/build-tool-2026-11.md)). Ask the owner before any other dependency, also one
   for development only.
 - Names in code use the glossary terms (`human_time`, `timesheet_confirmation`, `event_key`), never a term under
-  _Avoid_. Public functions have type hints.
+  _Avoid_. Public functions have type hints. Python code follows PEP 8, with lines wrapped at 99 columns; docstrings
+  are in English.
 - Tests never read the native logs, the store, or the configuration of the machine: they use temporary folders.
 
 ## Prototype

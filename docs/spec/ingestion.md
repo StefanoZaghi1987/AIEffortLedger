@@ -111,9 +111,10 @@ folder is longer than the retention period of its agent tool, the agent tool can
 that ingestion before any ingestion read them: the ingestion warns that events may be lost, names the folder and the
 interval, and completes with the exit code for incomplete figures.
 
-Each adapter declares the retention setting of its agent tool (for Claude Code, `cleanupPeriodDays` in any settings
-file). Setup shows the retention period that the agent tool applies and what it means: events of a native log that a
-longer gap in ingestion lets the agent tool delete are lost, and a purge that names a corrected version brings back
+Each adapter declares the retention setting of each of its agent tools, and which setting applies to each folder of
+native logs ([claude-code-adapter.md](claude-code-adapter.md) › Retention). Setup shows the retention period that the
+agent tool applies and what it means: events of a native log that a longer gap in ingestion lets the agent tool delete
+are lost, and a purge that names a corrected version brings back
 only events whose native log still exists (ADR 0015). Setup advises a longer retention period, shows the setting to
 change, and states its cost: the native log keeps the text of prompts, responses, and code on the disk for longer. The
 person decides; the ledger never changes the settings of an agent tool.
@@ -132,7 +133,9 @@ these steps: for a URL with a scheme (such as `https://` or `ssh://`), remove th
 password or token, and the port; for an address without a scheme (`user@host:path`), remove the user and write
 `host:path` as `host/path`; remove a final `.git` and a final `/`; write all in lower case. No credential reaches the
 store. When the SSH URL and the HTTPS URL of a repository differ only in these parts, the two clones have one repository
-identity. When a host writes them with different paths, an identity rule joins the two identities. The ledger reads only
+identity. When a host writes them with different paths, an identity rule joins the two identities. The lower case also
+gives one repository identity to two repositories of one host whose paths differ only in case; a host that serves them
+as two needs an identity rule on the branch or the folder of the two clones. The ledger reads only
 the `config` file of the common git directory, without its `include` files and without `insteadOf` rewrites. A remote
 that is a local folder or a `file://` URL is not used, because its path names folders of the machine; the ledger takes
 the next remote, or the root commit.

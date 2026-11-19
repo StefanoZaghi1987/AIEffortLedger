@@ -8,7 +8,7 @@ What the ledger is for, for whom, what it does not do, and what each phase deliv
 The ledger measures the effort of software work that a person does fully or partly with agents, after the work is done,
 and keeps the data to estimate new work. It separates human time from agent time and from calendar time (ADR 0001),
 attributes them to projects and work items, proposes a daily timesheet from measured values that the person confirms,
-and computes cost at report time.
+and, from Phase 2, computes cost at report time.
 
 Usage tools that exist count tokens and cost; none of them separates human time from agent time, divides time among
 projects, or takes declared values ([sources-2026-11.md](../research/sources-2026-11.md)). A timesheet written from
@@ -27,7 +27,8 @@ measurement showed that they were slower (same note).
 - No recording of the screen, the keyboard, or the applications of a person; a human-activity tracker is at most an
   optional source (Phase 6).
 - No text of prompts, responses, tool input, or code in the store (ADR 0003).
-- No network access, no server, no telemetry.
+- No network access, no server, no telemetry: the ledger itself opens no connection in any phase; data that lives on
+  the network, such as provider analytics (Phase 6), arrives as a file that the person exported.
 - No conversion of agent time into human time, and no single "hours" figure (ADR 0001).
 - No score or ranking of persons, and no invoicing.
 - No change to what another program owns: the ledger shows and advises, the person changes settings of agent tools.
@@ -56,8 +57,8 @@ sentence for a later phase names it.
 - ingestion of the native logs of Claude Code and Claude Desktop ([claude-code-adapter.md](claude-code-adapter.md)),
   with complete events only, repository identity, and the warning about lost events;
 - the store, the local index, purges with a corrected version, and retractions;
-- the person configuration: time-zone history, day start hours, project names, identity rules, category rules,
-  preferred remotes, settle time, and defaults of report parameters;
+- the person configuration: time-zone history, day start hours, project names and work item names, identity rules,
+  category rules, preferred remotes, settle time, and defaults of report parameters;
 - human time, agent time, blocked time, activity classes, the split rule, annotations with projects and work items,
   manual entries, timesheet proposals, and timesheet confirmations;
 - the daily timesheet and the report of a day, as text and JSON, in English and Italian, with frozen reports and

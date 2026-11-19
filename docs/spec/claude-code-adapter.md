@@ -27,6 +27,22 @@ files of a session together ([event-schema.md](event-schema.md) › Keys and inv
 Each line of a file is one JSON record with a `type`. A record that is not valid JSON produces a warning with the file
 and the line number, and no event.
 
+## Retention
+
+The adapter declares the retention setting of each of its agent tools, which setup shows with its advice
+([ingestion.md](ingestion.md) › Frequency):
+
+| Agent tool | Setting | Default |
+|---|---|---|
+| `claude-code` | `cleanupPeriodDays` | 30 days |
+| `claude-desktop` | `desktopSessionCleanupPeriodDays` | no age limit |
+
+Both settings live in the settings files of Claude Code: `cleanupPeriodDays` in the user, project, local, and managed
+settings file, `desktopSessionCleanupPeriodDays` in the user and managed settings file. `cleanupPeriodDays` has a
+minimum of 1 day and cannot be off: the value `0` fails validation. The native logs of `claude-desktop` are kept past
+`cleanupPeriodDays`; a transcript of Claude Desktop or Cowork is deleted only when it is older than both limits, and
+when managed settings set `cleanupPeriodDays`, that period applies to those transcripts as well.
+
 ## Session fields
 
 | Record key | Event field |
@@ -35,7 +51,7 @@ and the line number, and no event.
 | `version` | `source_format` |
 | `cwd` | `cwd`, and `repo_hint` with `repo_basis` at ingestion ([ingestion.md](ingestion.md) › Repository identity) |
 | `gitBranch` | `branch` |
-| `entrypoint` | `invocation`: `cli` and `local-agent` are `interactive`, `sdk-cli`, `sdk-ts`, and `sdk-py` are `headless`; any other value is `unknown`, with a warning that names it |
+| `entrypoint` | `invocation`: `cli` and `local-agent` are `interactive`, `sdk-cli`, `sdk-ts`, and `sdk-py` are `headless`; any other value is `unknown`, with a warning that names it; a record with no `entrypoint` gives `unknown`, without a warning |
 | `agentId` | `agent_id`: present in the records of a subagent; a record without it belongs to the main agent |
 
 The main agent has the session identifier as `agent_id`. A subagent has the `<agent>` part of the name of its file as
@@ -99,7 +115,8 @@ The rule of [ingestion.md](ingestion.md) › Adapters applies with these conditi
 - an `agent_output` is complete when the file of its agent holds a later record that is not a line of the same
   response;
 - a `tool_call`, and the `decision_request` of a permission, are complete when the tool result exists; a `tool_call`
-  of a `server_tool_use` or `mcp_tool_use` block is complete with its response;
+  of a `server_tool_use` or `mcp_tool_use` block is complete when its `agent_output` is complete, because the tool runs
+  inside the response;
 - every other event is complete when its record exists.
 
 ## Tokens

@@ -10,11 +10,11 @@ How the ledger turns events into effort. Terms follow [GLOSSARY.md](../../GLOSSA
 | Human time | person-hours | union | sum | human signals, agent outputs, manual entries, timesheet entries |
 | Agent time | agent-hours | sum over agents | sum | turns, declared usage |
 | Blocked time | hours | union | sum | decision requests and their decisions |
-| Calendar time | elapsed time (see To be confirmed) | first to last event | first to last event | all events of a work item |
+| Calendar time (Phase 2) | elapsed time (see To be confirmed) | first to last event | first to last event | all events of a work item |
 | Token usage | tokens per category and model | sum | sum | agent outputs, declared usage |
-| List-price cost | currency | sum | sum | token usage, request counts, and price factors × price table |
-| Actual cost | currency | sum | sum | cost sources, declared usage |
-| Person cost | currency | sum | sum | human time × hourly rate |
+| List-price cost (Phase 2) | currency | sum | sum | token usage, request counts, and price factors × price table |
+| Actual cost (Phase 2) | currency | sum | sum | cost sources, declared usage |
+| Person cost (Phase 2) | currency | sum | sum | human time × hourly rate |
 
 The quantities are never added together or converted into each other (ADR 0001). Agent-hours of parallel agents add
 up, so agent time can be longer than the clock time in which it happens; activity classes are clock time of one
@@ -46,8 +46,8 @@ unknown invocation.
 ### Declared values
 
 A manual entry is an interval with a start, an end, a project, an optional work item, and a note; like every declared
-interval, it holds its start and not its end. It is not a human signal. Its mode decides how it combines with measured
-human time:
+interval, it includes its start instant and excludes its end instant. It is not a human signal. Its mode decides how it
+combines with measured human time:
 
 - `overlapping`: the entry merges with measured human time by union, and its attribution applies to the whole
   interval; where it overlaps measured human time of another project or work item, the report warns about the change;
@@ -63,15 +63,17 @@ confirmations do not count. A change of a day is a new confirmation, which names
 its machine has; a retraction of the latest confirmation brings back the one before it. The latest confirmation is the
 one with the latest `timestamp`, and equal instants resolve by event key. When an earlier confirmation of the day that
 is not retracted is not named by the latest one, directly or through the confirmations between them, two machines
-confirmed the day without seeing each other, and the report warns. The declared value of a project is the sum of its
-entries; an entry without a work item stays in the part of the project that has no work item, and the ledger does not
-divide it among work items. A timesheet entry takes no part in activity classes, in the split rule, or in the union with
-manual entries.
+confirmed the day without seeing each other, and the report warns. A retracted confirmation still carries the chain of
+`replaces`: the confirmations between two are every confirmation of the day that the chain names, retracted or not. The
+declared value of a project is the sum of its entries; an entry without a work item stays in the part of the project
+that has no work item, and the ledger does not divide it among work items. A timesheet entry takes no part in activity
+classes, in the split rule, or in the union with manual entries.
 
 The ledger computes the timesheet proposal of a day; the person confirms or changes it, and only a timesheet
-confirmation enters the store. The proposal has one entry for each project and work item with measured human time in the
-day, and one for the unattributed time when it is not zero. Each proposed value is the measured human time with manual
-entries, after the split rule, rounded up to the timesheet granularity (default 15 minutes): measured human time is a
+confirmation enters the store. The proposal has one entry for each project and work item whose measured human time with
+manual entries in the day is not zero, and one for the unattributed time when that value is not zero. Each proposed
+value is the measured human time with manual entries, after the split rule, rounded up to the timesheet granularity
+(default 15 minutes): measured human time is a
 lower bound, so a proposal without a given total is never lower than it. When the person gives the total human time of
 the day, the proposal divides that total by the shares of measured human time, in units of the timesheet granularity,
 with the largest-remainder method, so that the entries add up to the total; a part of the total smaller than one unit
@@ -152,8 +154,9 @@ work, and do not count.
 
 ## Attribution
 
-Each event is attributed to independent dimensions: person, machine, tool, provider, model, project, work item, release,
-milestone, and cost centre. A report is a grouping over a period. Identity rules resolve the project of each event at
+Each event is attributed to independent dimensions: person, machine, tool, model, project, and work item; provider,
+release, and milestone from Phase 2; cost centre with the phase that introduces it. A report is a grouping over a
+period. Identity rules resolve the project of each event at
 report time from its repository identity, folder, branch, and date; by default one repository is one project (ADR 0009).
 A project is a project identifier with a name (ADR 0019): by default the identifier is the repository identity, and the
 name is the last part of its path, or the first 12 characters of a root-commit hash; a project identifier that is not a
@@ -176,8 +179,8 @@ in mode `overlapping` overlap each other, the one with the latest `timestamp` ap
 event key. Events whose project cannot be resolved, also because of a configuration error
 ([configuration.md](configuration.md) › Matching), go to the unattributed bucket; an event with a project and no work
 item stays in the part of its project that has no work item. Blocked time takes the attribution of its decision request.
-Reports show the share of the human time and agent time of each project that rests on an inferred repository identity
-(ADR 0018).
+Reports show the share of the human time and of the agent time of each project and work item that rests on an inferred
+repository identity (ADR 0018).
 
 The split rule gives each instant of measured human time to one human signal (ADR 0021). Each interval of human time
 belongs to the human signal that ends it: a signal gap to its later signal, a response interval and a minimum attention
@@ -233,16 +236,15 @@ Every report records the report parameters, the rules, and the dated facts it us
 attention time, headless prompts, first day of the week, timesheet granularity; identity rules, category rules;
 time-zone history, day start hours, price tables), the version of the ledger and of the time-zone database, and the
 state of the store it read ([architecture.md](architecture.md) › Report record). A person freezes a report when they
-give it to someone: the report keeps exactly the document that it gives as a frozen report in the store folder
-([command-line.md](command-line.md) › Frozen reports). Later reports of that period compute with the current report
-parameters and dated facts, and show the differences against the frozen figures and the report parameters and dated
-facts that changed, instead of replacing it. Where frozen reports overlap, a later report compares each day with the
-latest frozen report that holds that day.
+give it to someone: the report keeps exactly the document that the person gives, and later reports of that period show
+their differences against it, instead of replacing it; the rule of the frozen reports is in
+[command-line.md](command-line.md) › Frozen reports.
 
 ## Uncertainty
 
-Every report that shows the human time of measured days also shows it at idle gaps of 5, 10, and 15 minutes and at the
-idle gap in use, so that the reader sees how much the figure depends on the parameter.
+Every command that shows the human time of a day — `report timesheet`, `report day`, and `timesheet <day>`
+([command-line.md](command-line.md) › Reports) — also shows it, for a measured day, at idle gaps of 5, 10, and 15
+minutes and at the idle gap in use, so that the reader sees how much the figure depends on the parameter.
 
 ## To be confirmed
 

@@ -15,7 +15,7 @@ reasons for event identity and for new schema versions are in ADR 0023.
 | `notification` | system | A non-human input to an agent: task notification, coordinator or peer message, the input that a subagent gets from the agent that started it, scheduled trigger, or a prompt of a session of headless, scheduled, or orchestrated invocation |
 | `agent_output` | agent | One response of a model; carries token usage, request counts, and price factors |
 | `tool_call` | agent | An agent asks to run a tool; carries the tool name, the tool category, and size counters |
-| `tool_result` | system | The result of a tool returns to the agent |
+| `tool_result` | system | The result of a tool call, returned to the agent that asked for it |
 | `decision_request` | agent | A permission request, a question to the person, or a plan approval |
 | `decision` | human or system | The answer to a decision request; `human` when the person answered, `system` for a configured rule |
 | `manual_entry` | human | An interval of declared human time |
@@ -45,7 +45,7 @@ derives them.
 | `kind` | yes | One of the kinds above |
 | `invocation` | for events of a session | `interactive`, `headless`, `scheduled`, `orchestrated`, or `unknown`, as the source shows it at the event; a resumed session can change it |
 | `parent_session_id` | when known | Session that started this session, such as the session of a coordinator or an orchestrator |
-| `agent_id` | for agent events and tool results | Agent that produced or receives the event; equals the session for the main agent |
+| `agent_id` | for events of a session | Agent that the event belongs to: the agent that produced it, or, for an input, the agent that the input reaches; equals the session for the main agent |
 | `parent_agent_id` | for subagents | Agent that started the subagent |
 | `subagent_mode` | for subagents | `foreground` or `background` |
 | `call_id` | for tool and decision events | Links `tool_call`, `decision_request`, `decision`, and `tool_result` of one tool use |
@@ -67,12 +67,12 @@ derives them.
 | `repo_hint` | when known | Repository identity observed or inferred at ingestion (ADR 0004, ADR 0009, ADR 0018) |
 | `repo_basis` | with `repo_hint` | `observed` when read from the folder of the event, `inferred` when read from its nearest existing parent folder because the folder no longer exists (ADR 0018) |
 | `branch` | when known | Git branch at the event |
-| `start`, `end` | for manual entries and interval annotations; optional for `declared_usage` | UTC limits of the declared interval, which holds `start` and not `end` |
+| `start`, `end` | for manual entries and interval annotations; optional for `declared_usage` | UTC limits of the declared interval, which includes its start instant and excludes its end instant |
 | `day` | for timesheet confirmations | Date of the local day of the person to which the confirmation applies ([metrics.md](metrics.md)) |
 | `duration` | optional for `declared_usage` | Declared agent time (Phase 2) |
 | `cost`, `currency` | optional for `declared_usage` | Actual cost that the person declares (Phase 2); computed costs are never stored (ADR 0007) |
 | `manual_mode` | for manual entries | `additional` or `overlapping` |
-| `project`, `work_item` | `project` for manual entries and declared usage; otherwise optional | Attribution declared by the person: a project identifier and a work item identifier (ADR 0019); an annotation has at least one of them or `labels` |
+| `project`, `work_item` | `project` for declared usage; for manual entries optional, absent for the unattributed time; otherwise optional | Attribution declared by the person: a project identifier and a work item identifier (ADR 0019); an annotation has at least one of them or `labels` |
 | `note` | optional for manual entries, annotations, and declared usage | Short text written by the person for the person |
 | `entries` | for timesheet confirmations | The timesheet entries of the day, at most one for each project and work item, possibly none: each with `project` (absent for the unattributed time), `work_item` (optional, only with `project`), `duration`, and `note` (optional) |
 | `replaces` | optional for timesheet confirmations | Event key of the latest confirmation of the same day that the writing machine had when it wrote this one ([metrics.md](metrics.md) › Declared values) |
@@ -103,7 +103,10 @@ fields of its schema version. An absent field is not written, never written as `
 A new schema version only adds fields, kinds, or values of a field; it never changes the meaning of an existing field,
 kind, or value (ADR 0023). A reader therefore reads an event of a newer schema version with the fields that it knows and
 ignores the other fields. It leaves out an event of a kind that it does not know, or with a value that it does not know
-in a field that it knows; such a line is not a broken line. The report warns that events of a newer version of the
+in a field that it knows; such a line is not a broken line. The values that this rule checks are those of the fields
+with a fixed set of values — `kind`, `actor`, `invocation`, `tool_category`, `input_origin`, `decision_type`,
+`manual_mode`, `size_basis`, `repo_basis`, and `purge_reason`; the keys of the open sets — token categories, request
+types, and price factors — pass through as they are. The report warns that events of a newer version of the
 ledger exist, asks to update the ledger, and completes with the exit code for incomplete figures
 ([command-line.md](command-line.md) › Exit codes).
 
@@ -129,7 +132,8 @@ ledger exist, asks to update the ledger, and completes with the exit code for in
 - The key of an event is (`source`, `native_id`) when the source gives a native identifier, otherwise (`source`,
   `session_id`, `event_uid`). Events that a command writes have the source `ledger` and no session: their key is
   (`ledger`, `event_uid`), with a random `event_uid` made at creation. Ingesting an event twice leaves one event, also
-  after an adapter starts to recognize a new `source_format`.
+  after an adapter starts to recognize a new `source_format`. Event keys have an order, which tie-breaks use: by
+  `source`, then `session_id`, then `event_uid`, each compared as text, and an absent part comes before every text.
 - The identity of an event comes only from facts that the source gives about identity, never from the line number of a
   record in a file or from its content (ADR 0023). An event takes the identifier of the record it comes from; when one
   record gives more than one event, the kind of the event goes before the identifier, for example `decision:` and the
@@ -142,6 +146,9 @@ ledger exist, asks to update the ledger, and completes with the exit code for in
 - When two copies of an event with the same key differ in a field other than the key, the copy with the earliest
   `ingested_at` wins, and equal instants resolve by the order of the names of the segments that hold the copies.
   Segments of several machines therefore merge to the same result in any order.
+- A folder of native logs is read by the machine on which it exists. When two machines read the same folder anyway, for
+  example through a copied profile, the merge rule keeps the copy with the earliest `ingested_at` and its `machine`
+  field, so the machine that such an event names depends on which machine ingested it first.
 - A stored event does not change, so ingestion writes only complete events ([ingestion.md](ingestion.md)). A correction
   of an adapter reaches events already stored only through a purge that names the corrected version and a new ingestion
   (ADR 0015).
@@ -159,11 +166,11 @@ ledger exist, asks to update the ledger, and completes with the exit code for in
   session whose identifier sorts first is the original, and the adapter warns. An event already in the store keeps its
   session (ADR 0023).
 - One response that the source writes on several lines becomes one `agent_output` with the largest token counts and
-  request counts, and the price factors of its last line.
+  request counts, and, for each price factor, the value of the last line of the response that gives it.
 - Size counters are computed before the text is dropped (ADR 0016). When the source gives a patch of the change, in the
   tool result or in the tool input, they are the added and removed lines of the patch, with `size_basis` `patch`.
   Otherwise they are the lines of the new text and of the replaced text in the tool input, with `size_basis` `input`; a
-  whole-file write that the source reports as a new file has no removed lines, and one that the source does not report
+  whole-file write that the source reports as a new file has zero lines removed, and one that the source does not report
   as new has lines removed absent. A tool call without a result, or whose result the source marks as an error, gets no
   size counters. The lines of a text are its line breaks, plus one when the text does not end with a line break; the
   file extension is the part of the file name after its last dot, in lower case; a name without a dot, or whose only dot
@@ -175,7 +182,9 @@ ledger exist, asks to update the ledger, and completes with the exit code for in
 - Events are append-only. A wrong event is cancelled by a retraction; attribution changes by annotation; only a purge
   removes events (ADR 0008). Ingestion and merge never add a copy of a key that a purge lists, unless the purge names a
   corrected version and the writer version of the copy is that version or a newer one (ADR 0015). Before a purge, the
-  ledger warns about the purged keys whose source no longer exists, because no new ingestion can bring them back.
+  ledger warns about the purged keys whose source no longer exists: for a source of native logs, a source of which no
+  folder of native logs remains in the machine configuration; the source `ledger` always exists. No new ingestion can
+  bring such keys back.
 
 ## To be confirmed
 

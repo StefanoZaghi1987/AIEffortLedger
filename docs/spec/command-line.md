@@ -40,7 +40,8 @@ Values in options:
 - **Standard error** holds warnings and errors, one on each line, each starting with `warning:` or `error:`. With
   `--json`, warnings and configuration errors are also in the `warnings` and `configuration_errors` lists of the
   document (see JSON documents).
-- **Durations** are `H:MM` in tables and whole seconds in JSON.
+- **Durations** are `H:MM` in tables and whole seconds in JSON; hours longer than a day keep their full count, such as
+  `25:30`.
 
 A command asks a question only in `setup` and `purge`, and only when standard input is a terminal. An option gives
 every answer, so a scheduler, a hook, or a script never waits for a person.
@@ -68,8 +69,8 @@ measured value, or two timesheet confirmations of a day from two machines, keeps
 | `config show` | show the value of each parameter and dated fact with the layer that gives it, and every configuration error |
 | `config add <entry> <options>` | append an entry to the person configuration (see Configuration entries) |
 | `sessions <day>` | list the sessions of a local day: identifier, agent tool, start and end (its first and last event in the day), folder, branch, and, on one line for each project and work item of the session, the human time that the split rule gives to its human signals and its agent time |
-| `annotate --session <id> \| --from <instant> --to <instant>` with at least one of `--project`, `--work-item`, and an optional `--note` | write an annotation; `--session` takes the identifier that `sessions` shows; a work item without `--project` belongs to the project that attribution gives to the event ([metrics.md](metrics.md) › Attribution) |
-| `entry add --from <instant> --to <instant> --project <project> --mode overlapping\|additional` with `--work-item`, `--note` | write a manual entry |
+| `annotate [--tool <agent tool>] --session <id> \| --from <instant> --to <instant>` with at least one of `--project` and `--work-item`, and an optional `--note` | write an annotation; `--session` takes the identifier that `sessions` shows, and `--tool` names the agent tool when two of them hold the same identifier; a work item without `--project` belongs to the project that attribution gives to the event ([metrics.md](metrics.md) › Attribution) |
+| `entry add --from <instant> --to <instant> [--project <project>] --mode overlapping\|additional` with `--work-item`, `--note`; without `--project`, or with `--project -`, the entry declares the unattributed time | write a manual entry |
 | `timesheet <day>` | show the timesheet proposal of a measured day, or the timesheet entries of a declared day, with the measured values next to them |
 | `timesheet confirm <day>` with `--total <duration>`, `--set <value of a timesheet entry>` (repeatable), `--note <text>` | write a timesheet confirmation (see Timesheet) |
 | `timesheet retract <day>` | retract the latest timesheet confirmation of the day |
@@ -84,7 +85,8 @@ measured value, or two timesheet confirmations of a day from two machines, keeps
 | `--help`, `<command> --help` | show the commands, or the options of one command |
 
 A command that names a target that the store does not hold — `annotate --session`, `retract`, and `frozen remove` —
-stops with exit code 1 and names the target.
+stops with exit code 1 and names the target; `annotate --session` without `--tool` does the same when two agent tools
+hold the identifier.
 
 ## Setup
 
@@ -155,13 +157,14 @@ the consent of the person. `--corrected-version` is not accepted with `--reason 
 `report timesheet` shows, for each local day of the period, the state of the day (measured or declared), the total human
 time of the day, and, for each project and work item and for the unattributed time, three values: the measured human
 time, the measured human time with manual entries, and the declared value of a declared day
-([metrics.md](metrics.md) › Declared values). Measured days also show their human time at idle gaps of 5, 10, and 15
-minutes and at the idle gap in use ([metrics.md](metrics.md) › Uncertainty), and the share of human signals from
-sessions of unknown invocation; each project shows the share of its human time and agent time that rests on an inferred
-repository identity. Warnings and configuration errors come before the table.
+([metrics.md](metrics.md) › Declared values). Every command that shows the human time of a day — `report timesheet`,
+`report day`, `timesheet <day>` — also shows, for a measured day, the human time at idle gaps of 5, 10, and 15 minutes
+and at the idle gap in use ([metrics.md](metrics.md) › Uncertainty), and the share of human signals from sessions of
+unknown invocation; each project and work item shows the share of its human time and of its agent time that rests on an
+inferred repository identity. Warnings and configuration errors come before the table.
 
 A report of a period that a frozen report holds also shows, for each day, project, and work item, the difference
-against the frozen figures, and the report parameters and dated facts that changed (see Frozen reports).
+against the frozen figures, and the report parameters, rules, and dated facts that changed (see Frozen reports).
 
 In Italian, the titles, the states, and the warnings use the Italian terms of [GLOSSARY.md](../../GLOSSARY.md);
 project names, work items, and notes stay as the person wrote them.
@@ -170,11 +173,11 @@ project names, work items, and notes stay as the person wrote them.
 
 A report command with `--freeze` writes its result and keeps exactly that document as a frozen report: its JSON
 document, report record included, also when the output is text. It writes the file `frozen/<machine>/<id>.json` of the
-store folder ([ingestion.md](ingestion.md) › Store), with `--note` as its note, and shows its identifier. A later report
-of the same period computes with the current report parameters and dated facts, and shows the differences against the
-frozen figures and the report parameters and dated facts that differ between the two report records; where frozen
-reports overlap, it compares each day with the latest frozen report that holds that day
-([metrics.md](metrics.md) › Reproducibility). `frozen remove <id>` deletes the file of a frozen report. Only the machine
+store folder ([ingestion.md](ingestion.md) › Store), with `--note` as its note and a random UUID as `<id>`, and shows
+the identifier. A later report of the same period computes with the current report parameters, rules, and dated facts,
+and shows the differences against the frozen figures and the report parameters, rules, and dated facts that differ
+between the two report records; where frozen reports overlap, it compares each day with the latest frozen report that
+holds that day. `frozen remove <id>` deletes the file of a frozen report. Only the machine
 that wrote the file removes it, because each file of the store has one writer; on another machine the command stops
 with exit code 1 and names the machine that wrote it.
 
@@ -183,9 +186,9 @@ with exit code 1 and names the machine that wrote it.
 With `--json`, every command writes one JSON object with `command` (the command and its subcommand, such as
 `report timesheet`), `warnings`, and `configuration_errors`. Each warning and each configuration error is an object
 with `code`, a stable name such as `lost_events`; `values`, an object with the values that it names, never translated;
-and `message`, its text in the language of the output. The codes are part of the contract, and the program holds an
-English and an Italian text for each. Every warning and every configuration error has a code: a stable name in lower
-case with underscores, the same in every version and every language; the codes of Phase 1 are:
+and `message`, its text in the language of the output. Every warning and every configuration error has a code: a stable
+name in lower case with underscores, the same in every version and every language; the codes are part of the contract,
+the program holds an English and an Italian text for each, and the codes of Phase 1 are:
 
 | Code | Condition |
 |---|---|
@@ -194,14 +197,14 @@ case with underscores, the same in every version and every language; the codes o
 | `newer_schema_version` | events of a newer schema version exist; kinds and values that the ledger does not know are left out |
 | `unknown_tool_name` | a tool name is in no table of its adapter and no category rule matches it |
 | `unknown_entrypoint` | an entrypoint value maps to no invocation |
-| `unknown_record_type` | a record type of a native log is not known; it gives no event |
+| `unknown_record_type` | a record type of a native log is not known, or a record of a known type has a structure that the adapter does not know; it gives no event |
 | `unknown_origin_kind` | an `origin.kind` value is not known; its record gives no event |
 | `unknown_permission_source` | a `permissionDecision.source` value is not known; its record gives no decision |
 | `multi_tool_result_permission` | a `permissionDecision` sits on a record with more than one `tool_result` |
 | `record_copies_differ` | two copies of one record differ in a field other than identity |
 | `fork_original_unknown` | both sessions of a fork, or neither, hold records of their own; the order of the identifiers decides |
 | `shallow_clone` | a repository has no root commit that the ledger can reach |
-| `held_back_events` | a report of a day shows a session whose events are not complete yet |
+| `held_back_events` | a report of a day shows a session of which this machine holds events back because they are not complete yet |
 | `manual_entry_overlap` | a manual entry overlaps measured human time or another manual entry |
 | `identity_rule_conflict` | two identity rules match an event and neither is more specific (configuration error) |
 | `category_rule_conflict` | two category rules match a tool name and neither is more specific (configuration error) |
@@ -211,7 +214,7 @@ case with underscores, the same in every version and every language; the codes o
 | `confirmation_before_replaced` | a confirmation has a `timestamp` earlier than the confirmation that it replaces |
 | `work_item_without_project` | an annotation gives a work item to events that have no project |
 | `declared_project_unknown` | no identity rule, no entry of the person configuration, and no repository identity gives the project identifier of a declared event |
-| `purged_key_source_gone` | a key of a purge names a source that no longer exists |
+| `purged_key_source_gone` | a key of a purge names a source that no longer exists: for a source of native logs, one of which no folder remains in the machine configuration; the source `ledger` always exists |
 | `no_schedule_entry` | `schedule remove` finds no entry of the ledger |
 
 A code marked "(configuration error)" appears in `configuration_errors`; the others appear in `warnings`. The commands
@@ -231,14 +234,14 @@ or a work item is an object with `id` and `name`, or `null` for the unattributed
 | `config add` | `entry` and its keys as appended |
 | `sessions` | `day` and `sessions`, each with `session_id`, `tool`, `start`, `end`, `cwd`, `branch`, and `parts`, each with `project`, `work_item`, `human_time`, and `agent_time` |
 | `annotate`, `entry add`, `timesheet confirm`, `timesheet retract`, `retract` | `event_uid` of the event that the command wrote; `timesheet confirm` also `entries` as in `timesheet` |
-| `timesheet` | `day`, `state`, `total`, `entries` as in `report timesheet`, and `context` with `agent_time` and `presence_span` |
+| `timesheet` | `day`, `state`, `total`, `human_time_at_idle_gaps` (measured days only), `unknown_invocation_share`, `entries` as in `report timesheet`, and `context` with `agent_time` and `presence_span` |
 | `entries` | `day` and `entries`, each with `event_uid`, `kind`, `timestamp`, and the other fields of the event ([event-schema.md](event-schema.md) › Fields) |
 | `purge` | `keys`, `keys_without_source`, and `written` (true when the command wrote the purge) |
-| `report timesheet` | `days`, each with `day`, `state`, `total`, `human_time_at_idle_gaps` (an object from the idle gap in seconds, as text, to the human time; measured days only), `unknown_invocation_share`, and `entries`, each with `project`, `work_item`, `measured`, `with_manual_entries`, `declared` (`null` on a measured day), and `inferred_share` |
-| `report day` | `day`, `person`, `projects`, and `work_items`; each with `human_time`, `agent_time`, `blocked_time`, and `activity_classes` (an object from the activity class to its duration), and `projects` and `work_items` each also with `project` and `work_item` |
+| `report timesheet` | `days`, each with `day`, `state`, `total`, `human_time_at_idle_gaps` (an object from the idle gap in seconds, as text, to the human time; measured days only), `unknown_invocation_share`, and `entries`, each with `project`, `work_item`, `measured`, `with_manual_entries`, `declared` (`null` on a measured day), `inferred_human_share`, and `inferred_agent_share` |
+| `report day` | `day`, `state`, `human_time_at_idle_gaps` (measured days only), `unknown_invocation_share`, `person`, `projects`, and `work_items`; `person`, each project of `projects`, and each work item of `work_items` with `human_time`, `agent_time`, `blocked_time`, and `activity_classes` (an object from the activity class to its duration); each project also with `project`, each work item also with `work_item`, and each project and work item also with `inferred_human_share` and `inferred_agent_share` |
 | `report timesheet --freeze`, `report day --freeze` | also `frozen_id`, the identifier of the frozen report |
 | `frozen list` | `frozen`, each with `id`, `report`, `from`, `to`, `note`, and `machine` |
-| `frozen show` | `frozen`, the frozen report; `differences`, for each day, project, and work item whose figures differ: the frozen value and the value of now; and `changed`, the report parameters and dated facts that differ between the two report records, each with its frozen value and its value of now |
+| `frozen show` | `frozen`, the frozen report; `differences`, for each day, project, and work item whose figures differ: the frozen value and the value of now; and `changed`, the report parameters, rules, and dated facts that differ between the two report records, each with its frozen value and its value of now |
 | `frozen remove` | `id` of the removed frozen report |
 | `index rebuild` | `segments` and `events`, the numbers that the local index holds |
 | `version` | `ledger` and `tzdata` |

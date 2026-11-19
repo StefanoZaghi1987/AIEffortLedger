@@ -162,8 +162,8 @@ _Avoid_: lead time
 **Turn**:
 One unit of agent execution: it starts at an input that reaches an agent with no turn in progress, continues through
 the tool results, queued messages, and notifications that arrive while it is in progress, and ends at the last agent
-output before the agent waits for a prompt or a notification, at an interruption, at the end of the session, or at its
-last event when no event follows within the stale limit.
+output before the agent waits, with no tool call pending, for a prompt or a notification, at an interruption, at the
+end of the session, or at its last event when no event follows within the stale limit.
 _Italian_: turno
 _Avoid_: request, round
 
@@ -186,8 +186,8 @@ that are not more than the idle gap apart.
 _Italian_: intervallo fra segnali
 
 **Response interval**:
-An interval of human time from the last agent output or decision request of a session to the human signal of the same
-session that follows it, when it is not longer than the idle gap.
+An interval of human time from the last agent output or decision request of the main agent or of a foreground subagent
+of a session to the human signal of the same session that follows it, when it is not longer than the idle gap.
 _Italian_: intervallo di risposta
 
 **Minimum attention time**:
@@ -365,6 +365,11 @@ _Avoid_: database, data file, ledger (the name of the tool)
 The folder that holds the store: its segments, the store metadata, the person configuration, and the frozen reports.
 _Italian_: cartella dell'archivio
 
+**Default store folder**:
+The folder of the store in the local user data folder of the operating system, used when the machine configuration
+gives no other folder.
+_Italian_: cartella predefinita dell'archivio
+
 **Segment**:
 A file of the store that one machine writes and no other machine changes.
 _Italian_: segmento
@@ -377,6 +382,11 @@ _Italian_: riga non valida
 A file of one machine that holds the events of all segments of a store in a form that reports read fast; it is never
 shared, and the ledger can build it again from the segments at any time.
 _Italian_: indice locale
+
+**Chained hash**:
+The SHA-256 value that covers one line of a segment and the chained hash of all the lines of the segment before it,
+which tells the local index where its copy of a segment ends.
+_Italian_: hash a catena
 
 **Store metadata**:
 The file of the store folder in which one machine describes itself, such as its machine label; only that machine
@@ -478,6 +488,11 @@ The normalized remote URL of a repository, or the hash of its root commit when i
 repository files; an observation on events, not a project. It is inferred, not observed, when the folder of the event
 no longer exists and the ledger reads the nearest existing parent folder.
 _Italian_: identità del repository
+
+**Worktree**:
+A second working folder of one repository, with its own files and one shared history; an agent tool can create and
+remove it, so the folder of a session can disappear while its repository stays.
+_Italian_: worktree
 
 **Identity rule**:
 A rule of the person configuration or of a project configuration that resolves events to a project from their
@@ -604,8 +619,9 @@ it used; a timesheet is shown by a report.
 _Italian_: report
 
 **Report record**:
-The part of a report that tells how it was computed: the version of the ledger, the report parameters, the dated facts,
-the configuration errors, and the state of the store that it read; a frozen report keeps it with the figures.
+The part of a report that tells how it was computed: the version of the ledger, the report parameters, the rules
+(identity rules, category rules), the dated facts, the configuration errors, and the state of the store that it read; a
+frozen report keeps it with the figures.
 _Italian_: traccia del report
 
 **Effort**:
@@ -638,3 +654,10 @@ _Italian_: modalità AI (completa, parziale, assente)
 **Reference class**:
 The set of completed work items with the same type, size class, and AI mode.
 _Italian_: classe di riferimento
+
+## Development
+
+**Benchmark**:
+A run of `tests/benchmark.py` that writes invented native logs and times the first ingestion and a daily timesheet of
+one month; a person runs it by hand before each release.
+_Italian_: benchmark

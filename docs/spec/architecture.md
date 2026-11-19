@@ -55,7 +55,9 @@ Build order: `events`, `platform`, `repository`, `language` → `configuration`,
 `ingestion`, `selection`, `metrics` → `attribution` → `declared`, `setup` → `reports` → `cli`. A module never imports a
 module that depends on it. Every module other than `cli` returns its warnings and configuration errors as values, each
 with a code and the values that it names, and `cli` writes them with the texts of `language` in the language of the
-output ([command-line.md](command-line.md) › JSON documents).
+output ([command-line.md](command-line.md) › JSON documents). The `cli` module also runs the modules of a report in the
+order of the data flow, and passes the result of each to the next, so `reports` imports neither `metrics` nor
+`attribution`.
 
 ## Data flow
 
@@ -106,8 +108,9 @@ The machine-local data folder ([ingestion.md](ingestion.md) › Store) holds:
 | `stores/<store>/sources.json` | the instant of the last ingestion of each folder of native logs, the size and the time of change of each file of native logs already read, the sessions with events held back, and the purges already applied |
 | `stores/<store>/index.sqlite` | the local index of that store |
 
-`<store>` is the first 16 hexadecimal characters of the SHA-256 hash of the absolute path of the store folder, with
-links resolved, and on Windows with all its characters in lower case. A move of the store folder therefore gives a new
+`<store>` is the first 16 hexadecimal characters, in lower case, of the SHA-256 hash of the absolute path of the store
+folder, with links resolved; on Windows the ledger reads the path itself in lower case before the hash, so that two
+ways to write the same folder give one `<store>`. A move of the store folder therefore gives a new
 `<store>`, a new local index, and an ingestion that reads every native log again; the store keeps one copy of each event
 key. The installation identifier is `MachineGuid` of the Windows registry, `/etc/machine-id` on Linux, and
 `IOPlatformUUID` of `ioreg` on macOS.
@@ -123,15 +126,18 @@ bytes of the line, starting from the hash of no bytes. To bring it up to date, t
 segment whose last indexed line is still at the same place, reads again a segment where it is not, such as after a
 purge, and removes the events of a segment that no longer exists. When the index was written by a version of the ledger
 with another index format, the ledger builds it again. It adds the lines of a segment in one transaction, keyed by
-segment and byte offset, so a report and an ingestion that bring it up to date at the same time add each line once. No
-result depends on the index: a report with an empty index gives the same figures.
+segment and byte offset, so a report and an ingestion that bring it up to date at the same time add each line once. The
+database runs in WAL mode, every connection sets a busy timeout of 30 seconds, and a command that cannot write within
+the timeout stops with exit code 1. No result depends on the index: a report with an empty index gives the same
+figures.
 
 ## Concurrency
 
 The lock is a lock of the operating system on the file `stores/<store>/lock`. Every command that writes to the store,
 or appends to the person configuration, takes it; the operating system releases it when the process ends, so a lock
 never stays after a crash. A command that cannot take the lock within 10 minutes stops with an error. Reports take no
-lock: they read the lines that the segments hold, and ignore a last line without a line break.
+lock — they read the lines that the segments hold, and ignore a last line without a line break — except a report with
+`--freeze`, which writes a frozen report into the store folder and takes the lock.
 
 A machine writes each event as one complete line and flushes it. A purge writes the new segment to a new file and then
 replaces the old one in one operation of the file system; when another process holds the segment open, the purge tries
@@ -140,14 +146,12 @@ file that more than one machine can change, and ADR 0017 gives its conflicts to 
 
 ## Report record
 
-Every report records: the version of the ledger and of `tzdata`; the report parameters and the dated facts that it used;
-its configuration errors; and the state of the store that it read: for each segment, its path, the number of bytes read,
-and the chained hash of those lines from the local index, and the broken lines that it skipped. A frozen report is
-exactly the JSON document of a report that ran with `--freeze`, its record included, also when the output was text; it
-is kept in `frozen/<machine>/<id>.json` of the store folder, with a random UUID as `<id>`, and only the machine that
-wrote it removes it ([command-line.md](command-line.md) › Frozen reports). A later report of a frozen period computes
-with the current report parameters and dated facts, and shows for each day, project, and work item the difference
-against the frozen figures, and the report parameters and dated facts that differ between the two records.
+Every report records: the version of the ledger and of `tzdata`; the report parameters, the identity rules and category
+rules, and the dated facts that it used; its configuration errors; and the state of the store that it read: for each
+segment, its path, the number of bytes read, and the chained hash of those lines from the local index, and the broken
+lines that it skipped. A frozen report is kept as given in `frozen/<machine>/<id>.json` of the store folder, and only
+the machine that wrote it removes it; the rule of the frozen reports, and what a later report of the same period shows
+against them, is in [command-line.md](command-line.md) › Frozen reports.
 
 ## Tests
 
@@ -175,8 +179,11 @@ the package installed in editable mode (`uv pip install -e .`).
   no text of the prompts, responses, tool input, or code of the fixtures.
 
 A GitHub Actions workflow, `.github/workflows/tests.yml`, runs the tests after each push and each pull request on
-Windows, Linux, and macOS, with Python 3.11 and the newest Python release. It uses only actions that GitHub publishes,
-`actions/checkout` and `actions/setup-python`, each fixed to a commit hash.
+Windows, Linux, and macOS, with Python 3.11 and the newest Python release, and then runs the static check
+`python -I tests/style.py`: it parses every file of the package and of the tests, names identifiers that hold a whole
+word that the glossary marks _Avoid_ (it reads them from [GLOSSARY.md](../../GLOSSARY.md)), public functions without
+type hints, and lines longer than 99 columns ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). The workflow
+uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`, each fixed to a commit hash.
 
 The validation on real native logs is not a test: it runs by hand on a copy of the native logs, writes only to a folder
 that git ignores, and its ratios go to `docs/research/`.
@@ -187,12 +194,21 @@ The benchmark is not a test either. `tests/benchmark.py`, whose name does not ma
 these native logs and a daily timesheet of one month. A person runs it by hand on a laptop before each release, and
 writes the seconds and the processor of the laptop in a dated note in `docs/research/`.
 
+## Release
+
+A release is a tag `v<version>` of the repository (see Runtime). The steps, in this order:
+
+1. Run the tests.
+2. Run the benchmark on a laptop and write the dated note in `docs/research/` (see Tests).
+3. Set the release version in `pyproject.toml`, without the development mark, and commit.
+4. Tag the commit `v<version>` and push the tag.
+
 ## Project structure
 
 | Path | Content |
 |---|---|
 | `src/ai_effort_ledger/` | the package, one module or subpackage for each row of Modules |
-| `tests/` | the tests of the package; fixtures in `tests/fixtures/`; the benchmark in `tests/benchmark.py` |
+| `tests/` | the tests of the package; fixtures in `tests/fixtures/`; the benchmark in `tests/benchmark.py`; the static check in `tests/style.py` |
 | `pyproject.toml` | the build tool, the package, its version, its dependency on `tzdata`, and the command |
 | `.github/workflows/` | the workflow that runs the tests on three operating systems (see Tests) |
 | `prototype/` | the throw-away prototype; not part of the package |

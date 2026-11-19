@@ -67,13 +67,22 @@ zone = "Asia/Tokyo"
 from = 2026-12-01T00:00:00Z
 ```
 
+and a person who starts the day at four adds this entry:
+
+```toml
+[[day_start]]
+hour = 04:00:00
+from = 2026-12-01
+```
+
+TOML writes a local time with its seconds, `04:00:00`; the command line reads and shows the hour as `HH:MM`, `04:00`.
+
 A dated fact is not overwritten: a new value is a new entry with a later start, so the earlier value stays valid for the
 earlier instants, and a report of any period recomputes with the values that applied then. Each entry is valid from its
-start to the next start in the same list, never before its own start; two entries of one list with the same start are a
-configuration error; in the time-zone history and the day start hours they leave instants without a local day, so every
-command that needs local days stops with an error that names the two entries. An instant before the earliest entry of
-the time-zone history or of the day start hours has no local day: a report that needs it stops with an error that names
-the instant.
+start to the next start in the same list, never before its own start; two entries of one list with the same start leave
+instants without a local day, so every command that needs local days stops with an error that names the two entries. An
+instant before the earliest entry of the time-zone history or of the day start hours has no local day: a report that
+needs it stops with an error that names the instant.
 
 ## Matching
 
@@ -81,8 +90,12 @@ A rule matches an event when all its conditions match. A repository in a rule is
 that repository identity; `config add` turns a remote URL into a repository identity with the steps of
 [ingestion.md](ingestion.md) › Repository identity. A branch or a tool name in a rule is a pattern in which `*` stands
 for any text, and it matches with regard to case. A folder in a rule is an absolute folder and matches that folder and
-every folder inside it; `/` and `\` are the same separator, and Windows paths match without regard to case. A range of
-dates is a range of local days of the person, with both ends included (see [metrics.md](metrics.md) › Days and weeks).
+every folder inside it; `/` and `\` are the same separator, and Windows paths match without regard to case. The folder
+of an event can be a path of another operating system, such as a folder inside a virtual machine: the ledger compares
+the two paths as text, folder name by folder name, and does not ask whether the path exists on the machine; the
+comparison has no regard to case when the path in the rule is a Windows path (a drive letter or a UNC path), and regard
+to case otherwise. A range of dates is a range of local days of the person, with both ends included (see
+[metrics.md](metrics.md) › Days and weeks).
 
 Rule X is more specific than rule Y when X has every condition of Y with the same or a narrower value, and at least one
 more condition or one narrower value. A value is narrower when it matches a part of what the other value matches: a
@@ -99,9 +112,9 @@ identity rule of a configuration matches, so it never makes a configuration erro
 
 The command line changes the person configuration only by appending entries at the end of the file. Each appended value
 is written as a TOML basic string: the ledger writes the value between double quotes and escapes double quotes,
-backslashes, and control characters, so a value can never add, change, or remove an entry. The re-read after each append
-applies to every command that appends. Before it appends, it checks each value: a time zone that `tzdata` holds, an hour
-as `HH:MM`, a tool category of the event schema, a duration in the format above, and an instant or a day in the format
+backslashes, and control characters, so a value can never add, change, or remove an entry. Before it appends, it checks
+each value: a time zone that `tzdata` holds, an hour as `HH:MM`, a tool category of the event schema, a duration in the
+format above, and an instant or a day in the format
 of [command-line.md](command-line.md) › Form; a wrong value stops the command with the exit code for wrong use. After
 each append, it reads the whole file again; when the read fails, it restores the earlier content and reports the error.
 It never writes the file again as a whole, so the comments and the layout of the person stay. The person changes single
