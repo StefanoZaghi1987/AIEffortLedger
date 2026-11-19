@@ -41,7 +41,7 @@ measurement showed that they were slower (same note).
 | 1 | Core: the daily timesheet of one person, from Claude Code and Claude Desktop (see Phase 1) |
 | 2 | Attribution and reports: releases and milestones, weekly, monthly, and custom periods, declared usage, list-price cost, actual cost and subscription division, hourly rates and person cost, labels and session titles |
 | 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (see To be confirmed); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
-| 4 | Team: team export, merge, team reports, project configuration, pseudonym |
+| 4 | Team: team export, merge, team reports, project configuration, cost centres, pseudonym |
 | 5 | Estimation: work-item types and size classes, estimates, estimate-versus-actuals dataset, estimator |
 | 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |
 
@@ -64,10 +64,11 @@ sentence for a later phase names it.
 - the daily timesheet and the report of a day, as text and JSON, in English and Italian, with frozen reports and
   their differences.
 
-The adapter writes every field of [event-schema.md](event-schema.md) that the native log gives, except session titles,
-which need consent (Phase 2), also the fields that only later phases use, such as token usage, request counts, price
-factors, model, and size counters: native logs disappear after their retention period, and a field that ingestion does
-not write is lost.
+The adapter writes every field of [event-schema.md](event-schema.md) that the native log gives — also the fields that
+only later phases use, such as token usage, request counts, price factors, model, and size counters — except session
+titles, which need consent (Phase 2), and the provider hint, of which no sample of a native log shows the source fact
+yet (the open point of [claude-code-adapter.md](claude-code-adapter.md)): native logs disappear after their retention
+period, and a field that ingestion does not write is lost.
 
 **Acceptance criteria.**
 

@@ -16,6 +16,11 @@ A program through which a person works with agents, such as Claude Code, Claude 
 _Italian_: strumento agentico
 _Avoid_: client, assistant, IDE
 
+**Cowork**:
+The part of the Claude Desktop application for long autonomous work; its sessions run in a virtual machine, and their
+working folders are paths inside that machine.
+_Italian_: Cowork
+
 **Provider**:
 The company that serves a model and bills its usage, which can differ from the company that trained the model.
 _Italian_: fornitore
@@ -132,7 +137,7 @@ _Italian_: richiesta di decisione
 
 **Decision source**:
 Whether a decision request was answered by the person or by a configured rule; only answers of the person are human
-signals.
+signals. The event schema holds it as the `actor` of a `decision` event.
 _Italian_: origine della decisione
 
 ## Time
@@ -205,7 +210,7 @@ setup; not a report parameter.
 _Italian_: ora di inizio giornata
 
 **First day of the week**:
-The day on which each week of a report starts, Monday by default; a report parameter.
+The day on which each week of a report starts, Monday by default; a report parameter of Phase 2.
 _Italian_: primo giorno della settimana
 
 **Dated fact**:
@@ -503,7 +508,8 @@ _Italian_: regola di identità
 
 **Configuration error**:
 A rule or an entry of a configuration that the ledger cannot apply without a guess, such as two matching rules of
-which neither is more specific; the ledger applies none of them, and the report shows the error.
+which neither is more specific; the ledger applies none of them, the figures stay computable, and the report shows the
+error.
 _Italian_: errore di configurazione
 
 **Unattributed**:
@@ -545,7 +551,7 @@ A calendar interval that a report covers: a day, a week, a month, or a custom in
 _Italian_: periodo
 
 **Report parameter**:
-A value that a report uses to compute or show its figures, such as the idle gap, the first day of the week, or the
+A value that a report uses to compute or show its figures, such as the idle gap, the timesheet granularity, or the
 language; the person configuration gives its default, an option of a command can change it for one report, and every
 report records the values it used.
 _Italian_: parametro del report

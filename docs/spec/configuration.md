@@ -55,7 +55,7 @@ Single values are keys outside these entries:
 | `settle_time` | `"4h"` | the settle time ([ingestion.md](ingestion.md) › Adapters) |
 | `session_titles` | `false` | the consent for session titles (Phase 2) |
 | `pseudonym` | none | the pseudonym of the person (Phase 4) |
-| `[report]` table | defaults of the ledger | defaults of report parameters, one key for each: `idle_gap`, `minimum_attention`, `stale_limit`, `headless_prompts`, `first_day_of_week`, `timesheet_granularity`, `language` |
+| `[report]` table | defaults of the ledger | defaults of report parameters, one key for each: `idle_gap`, `minimum_attention`, `stale_limit`, `headless_prompts`, `timesheet_granularity`, `language`; `first_day_of_week` (Phase 2) |
 
 Keys and entries of a later phase are valid in any version of the ledger and have no effect before their phase. A
 duration is a text of whole numbers with the units `h`, `min`, and `s`, such as `"4h"`, `"10min"`, or `"1h30min"`. For
@@ -83,6 +83,9 @@ start to the next start in the same list, never before its own start; two entrie
 instants without a local day, so every command that needs local days stops with an error that names the two entries. An
 instant before the earliest entry of the time-zone history or of the day start hours has no local day: a report that
 needs it stops with an error that names the instant.
+
+These two errors stop the command; they are not configuration errors. A configuration error leaves figures that the
+report can still compute, and without a local day no figure of that instant can be computed.
 
 ## Matching
 

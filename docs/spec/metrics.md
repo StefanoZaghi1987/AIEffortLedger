@@ -114,6 +114,9 @@ The agent time of an agent is the duration of its turns without two kinds of wai
 - its blocked time;
 - the time in which it waits for its own foreground subagents, which the subagents count as their own agent time.
 
+A subagent whose `subagent_mode` is absent, because the settle time completed a session without the tool result that
+links it, counts here as a foreground subagent.
+
 The agent time of a set of agents is the sum over the agents. The ratio of this sum to the union of the same intervals
 shows how much agents work in parallel.
 
@@ -155,7 +158,7 @@ work, and do not count.
 ## Attribution
 
 Each event is attributed to independent dimensions: person, machine, tool, model, project, and work item; provider,
-release, and milestone from Phase 2; cost centre with the phase that introduces it. A report is a grouping over a
+release, and milestone from Phase 2; cost centre from Phase 4. A report is a grouping over a
 period. Identity rules resolve the project of each event at
 report time from its repository identity, folder, branch, and date; by default one repository is one project (ADR 0009).
 A project is a project identifier with a name (ADR 0019): by default the identifier is the repository identity, and the
@@ -215,9 +218,10 @@ None of these needs another rule, and an interval of human time or agent time th
 there. A local time that a command reads, such as the instant of a manual entry, is its first occurrence when a change
 of daylight saving repeats it, and the first instant after the change when the change skips it.
 
-A week starts on the first day of the week, a report parameter that is Monday by default, as in ISO 8601. A week is
-identified by the date of its first day; when the first day is Monday, reports also show the ISO 8601 week number.
-The rule applies to the whole report, so the weeks of all persons in one report are the same.
+Weeks come with the weekly reports of Phase 2. A week starts on the first day of the week, a report parameter that is
+Monday by default, as in ISO 8601. A week is identified by the date of its first day; when the first day is Monday,
+reports also show the ISO 8601 week number. The rule applies to the whole report, so the weeks of all persons in one
+report are the same.
 
 ## Cost
 
@@ -233,9 +237,10 @@ project is an upper bound.
 ## Reproducibility
 
 Every report records the report parameters, the rules, and the dated facts it used (idle gap, stale limit, minimum
-attention time, headless prompts, first day of the week, timesheet granularity, language; identity rules, category
-rules; time-zone history, day start hours, price tables), the version of the ledger and of the time-zone database, and
-the state of the store it read ([architecture.md](architecture.md) › Report record). A person freezes a report when they
+attention time, headless prompts, timesheet granularity, language, and, from Phase 2, the first day of the week;
+identity rules, category rules; time-zone history, day start hours, price tables), the version of the ledger and of
+the time-zone database, and the state of the store it read ([architecture.md](architecture.md) › Report record). A
+person freezes a report when they
 give it to someone: the report keeps exactly the document that the person gives, and later reports of that period show
 their differences against it, instead of replacing it; the rule of the frozen reports is in
 [command-line.md](command-line.md) › Frozen reports.
@@ -259,8 +264,9 @@ minutes and at the idle gap in use, so that the reader sees how much the figure 
 - Releases and milestones: how events are attributed to a release (date window, git tag, release line, explicit
   mapping), the bucket of unreleased work, and the rule for milestones. To specify at the start of Phase 2.
 - Work items and estimates: work-item type, size class (from size counters, ADR 0012, and from repositories), the rule
-  for AI mode, completion, how an estimate is recorded with the instant of its recording, and the check that an estimate
-  precedes the first event of its work item. To specify at the start of Phase 5.
+  for AI mode, the reference class of the estimator, completion, how an estimate is recorded with the instant of its
+  recording, and the check that an estimate precedes the first event of its work item. To specify at the start of
+  Phase 5.
 - Cost details: the basis that divides a subscription (tokens or list-price cost), how the ledger knows which cost
   source paid each agent output (subscription or metered account), billing periods that differ from report periods,
   provider resolution from the provider hint, token categories of other providers, the prices of request types and price

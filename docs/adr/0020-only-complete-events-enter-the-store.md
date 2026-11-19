@@ -10,8 +10,9 @@ tool result after its tool call, sometimes hours later. A stored event never cha
 counters of a tool call come from its tool result (ADR 0016). An ingestion that stores what it sees at its hour
 therefore stores events that later records change, and the same native log gives different stores at different hours of
 ingestion. Therefore an adapter writes an event only when it is complete, that is, when no later record of its source
-can change it. A response of a model is complete when a later record of the same agent exists, and a tool call is
-complete when its tool result exists. When the files of a session have not changed for the settle time (4 hours by
+can change it. A response of a model is complete when a later record of the same agent exists, a tool call is complete
+when its tool result exists, and the events of a subagent are complete when the tool result that links the subagent
+exists. When the files of a session have not changed for the settle time (4 hours by
 default, a single value of the person configuration), every event of the session is complete. An event that is not
 complete stays out of the store, and the next ingestion reads its session again.
 

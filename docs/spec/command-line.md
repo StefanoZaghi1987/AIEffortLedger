@@ -18,8 +18,8 @@ Options of every command:
 | `--language en\|it` | language of the output: the report parameter `language`, `en` by default |
 
 Report parameters are options of the commands that compute figures: `--idle-gap`, `--minimum-attention`,
-`--stale-limit`, `--headless-prompts yes|no`, `--first-day-of-week`, and `--timesheet-granularity`; an option overrides
-the person configuration for one command ([configuration.md](configuration.md) › Order).
+`--stale-limit`, `--headless-prompts yes|no`, and `--timesheet-granularity`; `--first-day-of-week` joins them in
+Phase 2; an option overrides the person configuration for one command ([configuration.md](configuration.md) › Order).
 
 Values in options:
 
@@ -30,8 +30,8 @@ Values in options:
 - a project is its project identifier, or, when no identifier matches, its name; `-` is the unattributed time, which
   has no work item;
 - the value of a timesheet entry is `<project>=<duration>`, or `<project>#<work item identifier>=<duration>`;
-- the first day of the week is the name of a day in English or in Italian, without regard to case (`monday`,
-  `lunedì`); in JSON it is the ISO 8601 number of the day, 1 (Monday) to 7 (Sunday);
+- the first day of the week (Phase 2) is the name of a day in English or in Italian, without regard to case
+  (`monday`, `lunedì`); in JSON it is the ISO 8601 number of the day, 1 (Monday) to 7 (Sunday);
 - a period and every range of days in an option includes both end days.
 
 ## Output
@@ -40,8 +40,8 @@ Values in options:
 - **Standard error** holds warnings and errors, one on each line, each starting with `warning:` or `error:`. With
   `--json`, warnings and configuration errors are also in the `warnings` and `configuration_errors` lists of the
   document (see JSON documents).
-- **Durations** are `H:MM` in tables and whole seconds in JSON; hours longer than a day keep their full count, such as
-  `25:30`.
+- **Durations** are `H:MM` in tables and whole seconds in JSON; a table shows whole minutes and leaves the seconds out,
+  so it never shows more than the value; hours longer than a day keep their full count, such as `25:30`.
 
 A command asks a question only in `setup` and `purge`, and only when standard input is a terminal. An option gives
 every answer, so a scheduler, a hook, or a script never waits for a person.
@@ -58,18 +58,19 @@ every answer, so a scheduler, a hook, or a script never waits for a person.
 A warning that does not make a figure incomplete, such as an unknown tool name, a declared value lower than the
 measured value, or two timesheet confirmations of a day from two machines, keeps the exit code 0. `timesheet confirm`
 also keeps it when it warns about held-back events of the day, because its entries are the declaration of the person.
+`config show`, which computes no figures, completes with exit code 0 also when it shows configuration errors.
 
 ## Commands
 
 | Command | Use |
 |---|---|
 | `setup` | prepare the ledger on a machine (see Setup) |
-| `schedule show\|create\|remove` | show, create (with `--time <HH:MM>`, default 12:00), or remove the scheduled ingestion ([ingestion.md](ingestion.md) › Frequency); `schedule create` replaces an entry of the ledger that already exists, and `schedule remove` without an entry completes with the warning `no_schedule_entry` |
+| `schedule show\|create\|remove` | show, create (with `--time <HH:MM>` in the local time of the operating system, default 12:00), or remove the scheduled ingestion ([ingestion.md](ingestion.md) › Frequency); `schedule create` replaces an entry of the ledger that already exists, and `schedule remove` without an entry completes with the warning `no_schedule_entry` |
 | `ingest` | run an ingestion; show the number of new events of each folder of native logs |
 | `machine label <text>` | change the label of the machine in its store metadata |
 | `config show` | show the value of each parameter and dated fact with the layer that gives it, and every configuration error |
 | `config add <entry> <options>` | append an entry to the person configuration (see Configuration entries) |
-| `sessions <day>` | list the sessions of a local day: identifier, agent tool, start and end (its first and last event in the day), folder, branch, and, on one line for each project and work item of the session, the human time that the split rule gives to its human signals and its agent time |
+| `sessions <day>` | list the sessions of a local day: identifier, agent tool, start and end (its first and last event in the day), folder, branch (of its last event in the day), and, on one line for each project and work item of the session, the human time that the split rule gives to its human signals and its agent time |
 | `annotate [--tool <agent tool>] --session <id> \| --from <instant> --to <instant>` with at least one of `--project` and `--work-item`, and an optional `--note` | write an annotation; `--session` takes the identifier that `sessions` shows, and `--tool` names the agent tool when two of them hold the same identifier; a work item without `--project` belongs to the project that attribution gives to the event ([metrics.md](metrics.md) › Attribution) |
 | `entry add --from <instant> --to <instant> [--project <project>] --mode overlapping\|additional` with `--work-item`, `--note`; without `--project`, or with `--project -`, the entry declares the unattributed time | write a manual entry |
 | `timesheet <day>` | show the timesheet proposal of a measured day, or the timesheet entries of a declared day, with the measured values next to them |
@@ -85,9 +86,9 @@ also keeps it when it warns about held-back events of the day, because its entri
 | `version` | show the version of the ledger and of `tzdata` |
 | `--help`, `<command> --help` | show the commands, or the options of one command |
 
-A command that names a target that the store does not hold — `annotate --session`, `retract`, and `frozen remove` —
-stops with exit code 1 and names the target; `annotate --session` without `--tool` does the same when two agent tools
-hold the identifier.
+A command that names a target that the store does not hold — `annotate --session`, `retract`, `timesheet retract`, and
+`frozen remove` — stops with exit code 1 and names the target; `annotate --session` without `--tool` does the same when
+two agent tools hold the identifier.
 
 ## Setup
 
@@ -199,7 +200,8 @@ the program holds an English and an Italian text for each, and the codes of Phas
 | `unknown_tool_name` | a tool name is in no table of its adapter and no category rule matches it |
 | `unknown_entrypoint` | an entrypoint value maps to no invocation |
 | `unknown_record_type` | a record type of a native log is not known, or a record of a known type has a structure that the adapter does not know; it gives no event |
-| `unknown_origin_kind` | an `origin.kind` value is not known; its record gives no event |
+| `invalid_record` | a line of a native log is not valid JSON; it gives no event |
+| `unknown_origin_kind` | an `origin.kind` value is not known; its record gives no event from that key |
 | `unknown_permission_source` | a `permissionDecision.source` value is not known; its record gives no decision |
 | `multi_tool_result_permission` | a `permissionDecision` sits on a record with more than one `tool_result` |
 | `record_copies_differ` | two copies of one record differ in a field other than identity |

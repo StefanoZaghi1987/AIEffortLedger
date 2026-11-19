@@ -11,8 +11,9 @@ versions it supports; a record type or a structure it does not know produces a w
 format version, never an event with a guessed meaning.
 
 An adapter writes an event only when it is complete, that is, when no later record of the source can change it
-(ADR 0020). A response of a model is complete when a later record of the same agent exists, and a tool call is complete
-when its tool result exists. When the files of a session have not changed for the settle time (default 4 hours, a single
+(ADR 0020). A response of a model is complete when a later record of the same agent exists, a tool call is complete
+when its tool result exists, and the events of a subagent are complete when the tool result that links the subagent to
+its call exists. When the files of a session have not changed for the settle time (default 4 hours, a single
 value of the person configuration), every event of the session is complete; a tool result that arrives later finds its
 tool call stored without size counters. An event that is not complete stays out of the store, and the next ingestion
 reads it again, so the same native log gives the same store at any hour of ingestion (ADR 0002). Three cases depend on
@@ -102,7 +103,8 @@ or the run cannot ask, such as a first run from a hook, setup only shows the tas
 The entry of the scheduled ingestion has the name `ai-effort-ledger-ingest`, by which `schedule show` and
 `schedule remove` find it. It runs the absolute path of the installed command `ai-effort-ledger` with
 `ingest --store <store folder>`, once a day at the time of `--time` of `setup` or `schedule create` (default 12:00),
-without a visible window where the scheduler allows it. It runs a missed start as soon as possible: the Task Scheduler
+in the local time of the operating system of the machine, without a visible window where the scheduler allows it. It
+runs a missed start as soon as possible: the Task Scheduler
 with its setting to start a missed task when it can, a systemd timer with `Persistent=true`, and launchd when the
 computer wakes.
 

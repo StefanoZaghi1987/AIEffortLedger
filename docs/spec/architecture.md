@@ -82,10 +82,10 @@ An ingestion runs these steps:
 A report brings the local index up to date and selects: all the events of every session that has an event in its period,
 with a margin of the longer of the stale limit and the idle gap before its start and after its end, so that a decision
 request, a wait for a subagent, or the folder of an earlier event of the session counts the same in a report of one day
-and in a report of a longer period; the timesheet confirmations by their `day`; manual entries and annotations of an
-interval by their interval; and retractions, purges, and annotations of a session at any instant. It leaves out the
-events that a purge blocks, that a retraction cancels, and that broken lines hold, and then computes in the order of the
-modules: `selection`, `metrics`, `attribution`, `declared`, and `reports`.
+and in a report of a longer period; the timesheet confirmations by their `day`; manual entries and interval annotations
+when their interval intersects the period; and retractions, purges, and annotations of a session at any instant. It
+leaves out the events that a purge blocks, that a retraction cancels, and that broken lines hold, and then computes in
+the order of the modules: `selection`, `metrics`, `attribution`, `declared`, and `reports`.
 
 ## Files of a machine
 
@@ -213,3 +213,8 @@ A release is a tag `v<version>` of the repository (see Runtime). The steps, in t
 | `.github/workflows/` | the workflow that runs the tests on three operating systems (see Tests) |
 | `prototype/` | the throw-away prototype; not part of the package |
 | `docs/` | specifications, ADRs, research |
+
+## To be confirmed
+
+- Publication of the package on the package index (see Runtime): to decide when a person asks to install the package
+  from the index; until then a release is a tag of the repository.

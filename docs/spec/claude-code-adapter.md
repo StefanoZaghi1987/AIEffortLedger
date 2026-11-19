@@ -40,10 +40,10 @@ The adapter declares the retention setting of each of its agent tools, which set
 Both settings live in the settings files of Claude Code: `cleanupPeriodDays` in the user, project, local, and managed
 settings file, `desktopSessionCleanupPeriodDays` in the user and managed settings file. `cleanupPeriodDays` has a
 minimum of 1 day and cannot be off: the value `0` fails validation; `desktopSessionCleanupPeriodDays` has `0` as its
-default, which sets no age limit. A transcript of Claude Desktop or Cowork is not deleted by the `cleanupPeriodDays`
+default, which sets no age limit. A native log of Claude Desktop or Cowork is not deleted by the `cleanupPeriodDays`
 of the user, project, or local settings file: Claude Code deletes it only when it is older than both
 `desktopSessionCleanupPeriodDays` and `cleanupPeriodDays`, so the longer of the two limits wins. When managed settings
-set `cleanupPeriodDays`, or the HIPAA configuration applies, Claude Code deletes these transcripts after
+set `cleanupPeriodDays`, or the HIPAA configuration applies, Claude Code deletes these native logs after
 `cleanupPeriodDays` alone and ignores `desktopSessionCleanupPeriodDays`.
 
 ## Session fields
@@ -76,7 +76,7 @@ The tool result of an `Agent` or `Task` call links the subagent to the call: its
 | each `tool_result` block of a `user` record | `tool_result` | native identifier `tool_result:` and the `tool_use_id`; `call_id` is the `tool_use_id` |
 | a `tool_result` of `AskUserQuestion` or `ExitPlanMode` | also `decision`, actor `human` | native identifier `decision:question:` or `decision:plan_approval:` and the `tool_use_id`; `call_id` |
 | a `tool_result` in a `user` record whose `permissionDecision.source` starts with `user` (`user_temporary`, `user_permanent`, `user_reject`) | also `decision_request` at the instant of the tool call, and `decision`, actor `human`, at the instant of the result | native identifiers `decision_request:permission:` and `decision:permission:` with the `tool_use_id`; `decision_type` `permission`; `call_id` |
-| in the file of the main agent, a `user` record without `tool_result` whose `origin.kind` is `human` | `prompt`, or `notification` with `input_origin` `scripted` when the session is not interactive and not of unknown invocation | native identifier `uuid` |
+| in the file of the main agent, a `user` record without `tool_result` whose `origin.kind` is `human` and whose text, after leading spaces, does not start with `[Request interrupted by user` | `prompt`, or `notification` with `input_origin` `scripted` when the session is not interactive and not of unknown invocation | native identifier `uuid` |
 | a `user` record whose `origin.kind` is `task-notification`, `coordinator`, or `peer` | `notification` with `input_origin` `task_notification`, `coordinator`, or `peer` | native identifier `uuid` |
 | `queue-operation` with `operation` `enqueue` whose `content` is a text that does not start with `<` | `queued_message` | no native identifier: the event identifier of [event-schema.md](event-schema.md) › Keys and invariants |
 | in the file of a subagent, a `user` record without `tool_result` and without `origin.kind` `task-notification`, `coordinator`, or `peer` | `notification` with `input_origin` `parent`: the input that the starting agent gives to the subagent | native identifier `uuid` |
@@ -120,6 +120,8 @@ The rule of [ingestion.md](ingestion.md) › Adapters applies with these conditi
 - a `tool_call`, and the `decision_request` of a permission, are complete when the tool result exists; a `tool_call`
   of a `server_tool_use` or `mcp_tool_use` block is complete when its `agent_output` is complete, because the tool runs
   inside the response;
+- the events of a subagent are complete when the tool result of the `Agent` or `Task` call that started it exists,
+  because that result gives their link (see Session fields);
 - every other event is complete when its record exists.
 
 ## Tokens
