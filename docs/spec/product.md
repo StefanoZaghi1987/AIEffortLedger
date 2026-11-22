@@ -82,7 +82,8 @@ period, and a field that ingestion does not write is lost.
 4. In every daily timesheet, the measured human time of the projects, work items, and unattributed time adds up to
    the measured human time of the day; on a measured day their values with manual entries add up to the total human
    time of the day; and on a declared day their declared values add up to the total of its latest timesheet
-   confirmation.
+   confirmation. The JSON document shows each sum exactly; a table, which leaves out the seconds, can fall short
+   by less than one minute for each part ([command-line.md](command-line.md) › Output).
 5. A day confirmed on two machines before the file-sync service copies the segments shows the latest confirmation and
    a warning.
 6. A purge with a corrected version, followed by an ingestion with that version, gives the corrected events; a purge

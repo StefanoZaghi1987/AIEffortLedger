@@ -58,9 +58,10 @@ machine configuration, in the machine-local data folder of the operating system 
 Files of a machine), never in the store and never in a folder that a roaming profile copies. Next to it, the ledger
 keeps a salted hash of the installation identifier; when that hash changes, because a user profile was copied to another
 computer or a virtual machine was cloned, the ledger creates a new machine identifier; every command that writes checks
-the hash first. Where the operating system gives no identifier, this check does not apply. The person gives each machine
-a machine label, which the machine writes in its own file of store metadata and reports show; the label can change at
-any time.
+the hash first. Where the operating system gives no identifier, this check does not apply. The salt is 32 random
+hexadecimal characters, and the salted hash is the SHA-256 hash of the UTF-8 bytes of the salt followed by the
+installation identifier, as lowercase hexadecimal text. The person gives each machine a machine label, which the
+machine writes in its own file of store metadata and reports show; the label can change at any time.
 
 The store folder has this layout, and every file has one writer (ADR 0010):
 
@@ -75,7 +76,9 @@ A machine appends only to the segment of the current month, so an older segment 
 writes the new segment in a new file and then puts it in the place of the old one.
 
 A reader ignores a last line of a segment that has no line break, without a warning, because a machine or a file-sync
-service is still writing it. A line that is not a valid event in another position is a broken line: it stays out of
+service is still writing it. Before it appends, a machine cuts such a last line from the end of its own segment, under
+the lock: its bytes are an append that stopped, never an event, so the next event starts on a line of its own. A line
+that is not a valid event in another position is a broken line: it stays out of
 every report, and the report warns with the segment and the line number, and completes with the exit code for incomplete
 figures ([command-line.md](command-line.md) › Exit codes). An event of a newer schema version is not a broken line
 ([event-schema.md](event-schema.md) › Encoding). The order of the names of segments, which settles two copies of an
@@ -106,7 +109,9 @@ The entry of the scheduled ingestion has the name `ai-effort-ledger-ingest`, by 
 in the local time of the operating system of the machine, without a visible window where the scheduler allows it. It
 runs a missed start as soon as possible: the Task Scheduler
 with its setting to start a missed task when it can, a systemd timer with `Persistent=true`, and launchd when the
-computer wakes.
+computer wakes. The advice of a scheduled ingestion names the retention period of each agent tool; on Linux it also
+names `loginctl enable-linger`, because a systemd user timer runs only while the person is logged in, unless linger
+is on for the person.
 
 For each folder of native logs, every ingestion records its own instant. When the time since the previous ingestion of a
 folder is longer than the retention period of its agent tool, the agent tool can have deleted files that changed after
@@ -133,7 +138,7 @@ The remote is the first one in the list of preferred remote names of the person 
 that the repository has, otherwise the first remote in the order of the names. Its URL becomes a repository identity in
 these steps: for a URL with a scheme (such as `https://` or `ssh://`), remove the scheme, the user information with any
 password or token, and the port; for an address without a scheme (`user@host:path`), remove the user and write
-`host:path` as `host/path`; remove a final `.git` and a final `/`; write all in lower case. No credential reaches the
+`host:path` as `host/path`; remove a final `/`, then a final `.git`; write all in lower case. No credential reaches the
 store. When the SSH URL and the HTTPS URL of a repository differ only in these parts, the two clones have one repository
 identity. When a host writes them with different paths, an identity rule joins the two identities. The lower case also
 gives one repository identity to two repositories of one host whose paths differ only in case; a host that serves them
@@ -148,8 +153,10 @@ as a loose object or from a pack file, with its deltas, using only the standard 
 commit of each repository, so it reads the history of a repository once. It reads the remotes from `config` at every
 ingestion, so a remote that is added or changed applies to the events that later ingestions write. A repository that
 gets its first remote changes from a root-commit identity to a remote identity; an identity rule joins the two. The
-repository identity of a root commit is `root-commit:` followed by its hash. A shallow clone, whose history stops before
-its root, has no root-commit identity, and the ledger warns.
+repository identity of a root commit is `root-commit:` followed by its hash. The reader covers the `files` reference
+backend and object names of 20 bytes (SHA-1).
+A shallow clone, whose history stops before its root, and a repository the reader cannot read both leave no
+root-commit identity, and the ledger warns.
 
 When the folder of an event no longer exists, ingestion starts the search for `.git` at the nearest existing parent
 folder; the repository identity it finds is inferred, and the event records `repo_basis` `inferred` (ADR 0018). The

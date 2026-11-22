@@ -25,7 +25,10 @@ launch folder of the session and plays no part in identity; the `cwd` of the rec
 files of a session together ([event-schema.md](event-schema.md) › Keys and invariants).
 
 Each line of a file is one JSON record with a `type`. A record that is not valid JSON produces a warning with the file
-and the line number, and no event.
+and the line number, and no event. A line whose bytes are not valid UTF-8 is such a record: the same warning
+and no event. A last line without a line break is not read, and gives no warning, while the files
+of the session changed within the settle time, because Claude Code is still writing it; after the settle time it is
+read like any other line.
 
 ## Retention
 
@@ -41,10 +44,23 @@ Both settings live in the settings files of Claude Code: `cleanupPeriodDays` in 
 settings file, `desktopSessionCleanupPeriodDays` in the user and managed settings file. `cleanupPeriodDays` has a
 minimum of 1 day and cannot be off: the value `0` fails validation; `desktopSessionCleanupPeriodDays` has `0` as its
 default, which sets no age limit. A native log of Claude Desktop or Cowork is not deleted by the `cleanupPeriodDays`
-of the user, project, or local settings file: Claude Code deletes it only when it is older than both
-`desktopSessionCleanupPeriodDays` and `cleanupPeriodDays`, so the longer of the two limits wins. When managed settings
+of the user, project, or local settings file alone: Claude Code deletes it only when it is older than both
+`desktopSessionCleanupPeriodDays` and the `cleanupPeriodDays` in effect from the project files of the folder of that
+session and the user settings file, with the default when none of them sets it, so the longer of the two limits
+wins. When managed settings
 set `cleanupPeriodDays`, or the HIPAA configuration applies, Claude Code deletes these native logs after
 `cleanupPeriodDays` alone and ignores `desktopSessionCleanupPeriodDays`.
+
+The ledger reads `cleanupPeriodDays` from the managed and user settings files and from the shared and local project
+settings files of each folder that a session of the machine names as `cwd`, also one the ledger holds back; for each
+folder the value in effect follows the precedence of Claude Code — managed, local project, shared project, user, then
+the default — and the retention period of `claude-code` is the shortest of these values, because Claude Code deletes
+native logs after a session starts in any folder, stored or not. A value given on the command line of Claude Code is
+not visible to the ledger. The user settings file is
+`settings.json` in the folder that holds the recorded `projects/` folder of Claude Code, because a scheduled ingestion
+does not get the environment variables of the person (see Native logs). When the machine configuration records
+more than one such folder, each has its user settings file, and the shortest value applies as above; when it
+records none, no user settings file gives a value.
 
 ## Session fields
 
@@ -106,10 +122,10 @@ The native log has no record for the start or the end of a session, so the adapt
 
 ## Forks
 
-A record whose `uuid` is in the files of two sessions, or whose `uuid` the local index holds for another session, is a
-copy that a fork made; a fork of a session that no longer changes is therefore found when only the fork is read. The
-adapter applies the rule of forked sessions of [event-schema.md](event-schema.md) › Keys and invariants, and writes
-`forked_from` on the events of the fork.
+A record whose `uuid` is in the files of two sessions, or whose event has a native identifier that the local index
+holds for another session, is a copy that a fork made; a fork of a session that no longer changes is therefore found
+when only the fork is read. The adapter applies the rule of forked sessions of [event-schema.md](event-schema.md) ›
+Keys and invariants, and writes `forked_from` on the events of the fork.
 
 ## Complete events
 
@@ -166,8 +182,8 @@ Every tool name that the table does not list, such as the name of a tool of an M
 | `decide` | `AskUserQuestion`, `ExitPlanMode` |
 | `other` | `ToolSearch`, `Skill`, `TodoWrite`, `TaskCreate`, `TaskUpdate`, `TaskStop`, `Monitor`, `ListMcpResourcesTool` |
 
-A tool call of `Agent` or `Task` is a wait of the calling agent for its subagent, from the tool call to its tool result:
-a background subagent returns its tool result at once, so its wait is near zero ([metrics.md](metrics.md) › Agent time).
+A tool call of the category `delegate` is a wait of the calling agent, from the tool call to its tool result: a
+background subagent returns its tool result at once, so its wait is near zero ([metrics.md](metrics.md) › Agent time).
 
 ## Size counters
 
@@ -199,3 +215,6 @@ A result with `is_error` gets no size counters, because the edit changed no file
   Code 2.1 holds these tools. To confirm with a real sample, before the end of Phase 1.
 - What the native log shows about the provider (`provider_hint`) when Claude Code uses the endpoint of another
   provider. To specify with a real sample, at the start of Phase 2.
+- How the ledger can tell that the HIPAA configuration applies, under which Claude Code deletes the native logs of
+  Claude Desktop after `cleanupPeriodDays` alone (see Retention): no file that the ledger reads shows it. To specify
+  with a primary source.

@@ -97,8 +97,10 @@ counts in the adapter.
 
 ## Encoding
 
-A segment holds one event on each line: a JSON object in UTF-8, ended by a line break (`\n`). A writer writes only the
-fields of its schema version. An absent field is not written, never written as `null`.
+A segment holds one event on each line: a JSON object in UTF-8, ended by a line break (`\n`). The object has no white
+space outside its strings, its members are sorted by name in the order of Unicode code points, and a letter outside
+ASCII is written as UTF-8, never as a `\u` escape, so that one event always gives the same bytes. A writer writes only
+the fields of its schema version. An absent field is not written, never written as `null`.
 
 A new schema version only adds fields, kinds, or values of a field; it never changes the meaning of an existing field,
 kind, or value (ADR 0023). A reader therefore reads an event of a newer schema version with the fields that it knows and
@@ -140,7 +142,9 @@ version of the ledger exist, asks to update the ledger, and completes with the e
   record gives more than one event, the kind of the event goes before the identifier, for example `decision:` and the
   identifier of the tool use. An event from a record without an identifier gets as `event_uid` its kind, its timestamp,
   and its position among the records of its session with the same kind and timestamp, in the order of the files of the
-  session (the file of the main agent, then the files of its subagents by name) and of the lines in each file.
+  session (the file of the main agent, then the files of its subagents by name) and of the lines in each file. The
+  identifier is the text `<kind>:<timestamp>:<position>`, with the timestamp as the event stores it and the position
+  counted from 0, for example `queued_message:2026-11-19T08:30:00.125Z:0`.
 - When a source writes one record more than once, for example in the file of a session and in the file of one of its
   subagents, the adapter writes one event, from the copy in the file of the agent that the record names, and warns
   when the copies differ in another field. The adapter therefore reads all the files of a session together.
@@ -173,9 +177,9 @@ version of the ledger exist, asks to update the ledger, and completes with the e
   Otherwise they are the lines of the new text and of the replaced text in the tool input, with `size_basis` `input`; a
   whole-file write that the source reports as a new file has zero lines removed, and one that the source does not report
   as new has lines removed absent. A tool call without a result, or whose result the source marks as an error, gets no
-  size counters. The lines of a text are its line breaks, plus one when the text does not end with a line break; the
-  file extension is the part of the file name after its last dot, in lower case; a name without a dot, or whose only dot
-  is its first character, has no file extension.
+  size counters. An empty text has no lines; the lines of another text are its line breaks, plus one when the text does
+  not end with a line break. The file extension is the part of the file name after its last dot, in lower case; a name
+  without a dot, or whose only dot is its first character, has no file extension.
 - The tool category comes from a table of the adapter; an unknown tool name gets `other`, and ingestion warns about it
   (ADR 0012, [ingestion.md](ingestion.md)). Category rules ([configuration.md](configuration.md)), matched on the tool
   name, replace the stored category at report time, so a tool that the adapter cannot know, such as a tool of an MCP

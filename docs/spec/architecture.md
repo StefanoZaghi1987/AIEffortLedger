@@ -121,8 +121,9 @@ The store metadata of a machine, `machines/<machine>.toml` in the store folder, 
 
 The local index is an SQLite database (`sqlite3` of the standard library) that holds every event of every segment with
 its segment and line, and for each segment the number of bytes that it indexed, the SHA-256 hash of its last indexed
-line, and the chained hash of its indexed lines: the SHA-256 hash of the chained hash of the lines before it and the
-bytes of the line, starting from the hash of no bytes. To bring it up to date, the ledger reads only the new bytes of a
+line, and the chained hash of its indexed lines: the SHA-256 hash of the 32 bytes of the chained hash of the lines
+before it followed by the bytes of the line with its line break, starting from the hash of no bytes; a report shows it
+as lowercase hexadecimal text. To bring it up to date, the ledger reads only the new bytes of a
 segment whose last indexed line is still at the same place, reads again a segment where it is not, such as after a
 purge, and removes the events of a segment that no longer exists. When the index was written by a version of the ledger
 with another index format, the ledger builds it again. It adds the lines of a segment in one transaction, keyed by
@@ -180,10 +181,14 @@ the package installed in editable mode (`uv pip install -e .`).
 
 A GitHub Actions workflow, `.github/workflows/tests.yml`, runs the tests after each push and each pull request on
 Windows, Linux, and macOS, with Python 3.11 and the newest Python release, and then runs the static check
-`python -I tests/style.py`: it parses every file of the package and of the tests, names identifiers that hold a whole
-word that the glossary marks _Avoid_ (it reads them from [GLOSSARY.md](../../GLOSSARY.md)), public functions without
-type hints, and lines longer than 99 columns ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). The workflow
-uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`, each fixed to a commit hash.
+`python -I tests/style.py`: it parses every file of the package and of the tests, and names public functions without
+type hints, lines longer than 99 columns, and identifiers that the code defines and that hold a word that the glossary
+marks _Avoid_ ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). It reads the _Avoid_ words from
+[GLOSSARY.md](../../GLOSSARY.md), without the text in parentheses of an entry; a word that a glossary term or the title
+of the glossary holds is not named, because an _Avoid_ word is wrong only for its own term; an entry of more than one
+word is named only as that sequence of words. Names that the code uses from other code, such as the standard library,
+are not checked. The workflow uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`,
+each fixed to a commit hash.
 
 The validation on real native logs is not a test: it runs by hand on a copy of the native logs, writes only to a folder
 that git ignores, and its ratios go to `docs/research/`.
@@ -202,6 +207,8 @@ A release is a tag `v<version>` of the repository (see Runtime). The steps, in t
 2. Run the benchmark on a laptop and write the dated note in `docs/research/` (see Tests).
 3. Set the release version in `pyproject.toml`, without the development mark, and commit.
 4. Tag the commit `v<version>` and push the tag.
+5. Set the next patch version with the development mark in `pyproject.toml`, such as `1.3.1.dev0` after `1.3.0`, and
+   commit: every later release, whatever its number, has a higher version.
 
 ## Project structure
 

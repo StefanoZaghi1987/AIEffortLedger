@@ -33,7 +33,9 @@ kinds of interval (ADR 0021):
   the idle gap apart;
 - **response interval**: from the last agent output or decision request of the main agent, or of a foreground
   subagent, of a session to the human signal of the same session that follows it, when not longer than the idle gap;
-  an output of a background subagent starts no response interval, because the person does not watch it while it runs;
+  an output of a background subagent starts no response interval, because the person does not watch it while it
+  runs, and a subagent whose `subagent_mode` is absent, because the settle time completed a session without the event
+  that links it, counts as a foreground subagent;
 - **minimum attention**: an interval of the minimum attention time that ends at a human signal that ends no signal gap
   and no response interval.
 
@@ -73,15 +75,20 @@ The ledger computes the timesheet proposal of a day; the person confirms or chan
 confirmation enters the store. The proposal has one entry for each project and work item whose measured human time with
 manual entries in the day is not zero, and one for the unattributed time when that value is not zero. Each proposed
 value is the measured human time with manual entries, after the split rule, rounded up to the timesheet granularity
-(default 15 minutes): measured human time is a
-lower bound, so a proposal without a given total is never lower than it. When the person gives the total human time of
-the day, the proposal divides that total by the shares of measured human time, in units of the timesheet granularity,
-with the largest-remainder method, so that the entries add up to the total; a part of the total smaller than one unit
-goes to the entry with the largest remainder. The total can be lower than the measured human time: then an entry can be
-lower than the measured human time of its project, and the report warns, as on every declared day. When the person gives
-the value of some entries and a total, the rest of the total divides among the other entries in the same way; when no
-other entry exists, the rest becomes the entry of the unattributed time. Agent time and the presence span appear next to
-the proposal as context, never as proposed values.
+(default 15 minutes): measured human time is a lower bound, so a proposal without a given total is never lower than it.
+When the person gives the total human time of the day, the proposal divides that total by the shares of measured human
+time with manual entries, in units of the timesheet granularity, with the largest-remainder method, so that the entries
+add up to the total; a part of the total smaller than one unit goes to the entry with the largest remainder. Between
+equal remainders, the entry with the larger measured human time with manual entries comes first, then the entry whose
+project and work item identifiers come first as text; the entry of the unattributed time comes last. The total can be
+lower than the measured human time: then an entry can be lower than the measured human time of its project, and the
+report warns, as on every declared day. When the person gives the value of some entries and a total, the rest of the
+total divides among the other entries in the same way; when no other entry exists, the rest becomes the entry of the
+unattributed time. Agent time and the presence span appear next to the proposal as context, never as proposed values.
+
+When the milliseconds of the parts of a day do not divide into whole seconds, the report divides the whole
+seconds of the total among the parts with the largest-remainder method, ties in the order above, so that the
+parts add up to the total in the JSON document.
 
 A day with a timesheet confirmation that is not retracted is a declared day (ADR 0014): the sum of the timesheet
 entries of its latest confirmation is all the human time of the person in that day, and its measured human time and
@@ -97,7 +104,9 @@ human time with manual entries, which is the basis of the timesheet proposal; an
 Total human time of a declared day is the sum of its timesheet entries; total human time of a measured day is the union
 of measured human time and manual entries. The report warns when the declared value of a project in a declared day, the
 sum of its timesheet entries, is lower than its measured human time, also when the project has no entry; the comparison
-is for each project, never for each work item. Measured human time is a lower bound: no source sees thinking,
+is for each project, never for each work item. The comparison, and the division of the proposal, use the values
+in whole seconds that the report shows ([command-line.md](command-line.md) › Output). Measured human time is a lower
+bound: no source sees thinking,
 discussion, or reading away from the tools.
 
 ## Agent time
@@ -112,10 +121,12 @@ its own turns, from its own events.
 The agent time of an agent is the duration of its turns without two kinds of wait:
 
 - its blocked time;
-- the time in which it waits for its own foreground subagents, which the subagents count as their own agent time.
+- the time in which it waits for its own subagents, which the subagents count as their own agent time.
 
-A subagent whose `subagent_mode` is absent, because the settle time completed a session without the tool result that
-links it, counts here as a foreground subagent.
+A wait for a subagent is the interval from a tool call of the category `delegate` to its tool result; a background
+subagent returns its tool result at once, so its wait is near zero. A `delegate` call that gets no tool result,
+because the settle time completed the session without it, waits until the next event of its agent, an interruption,
+or the last event of the session, as a decision request without a decision does (see Blocked time).
 
 The agent time of a set of agents is the sum over the agents. The ratio of this sum to the union of the same intervals
 shows how much agents work in parallel.
@@ -192,8 +203,8 @@ and intervals that end at the same instant resolve by the event key of their sig
 the work item of that human signal, so projects and work items need no separate split.
 
 The agent time of a turn whose events resolve to more than one project or work item divides at its events: each part
-between two consecutive events, without blocked time and waits for foreground subagents, takes the attribution of the
-event that ends it.
+between two consecutive events, without blocked time and waits for subagents, takes the attribution of the event
+that ends it.
 
 Attributed parts and the unattributed bucket always add up to the human time of the period: the per-project totals of
 a timesheet equal the daily total.

@@ -148,7 +148,7 @@ _Italian_: tempo persona
 _Avoid_: effective hours, ore effettive, active hours, man-hours
 
 **Agent time**:
-Time in which an agent executes turns, without its blocked time and without waiting for its own foreground subagents;
+Time in which an agent executes turns, without its blocked time and without waiting for its own subagents;
 the agent time of agents that run in parallel adds up.
 _Italian_: tempo agente
 _Avoid_: AI hours, machine time
@@ -196,7 +196,7 @@ of a session to the human signal of the same session that follows it, when it is
 _Italian_: intervallo di risposta
 
 **Minimum attention time**:
-The human time that an isolated human signal counts for.
+The human time that a human signal counts for when it ends no signal gap and no response interval.
 _Italian_: attenzione minima
 
 **Local day**:
@@ -436,8 +436,8 @@ events of the repository identity of that repository.
 _Italian_: configurazione di progetto
 
 **Scheduled ingestion**:
-An ingestion that a scheduler of the operating system starts every day, from an entry that setup creates with the
-consent of the person.
+An ingestion that a scheduler of the operating system starts every day, from an entry that setup or the command
+`schedule create` creates with the consent of the person.
 _Italian_: acquisizione pianificata
 
 **Setup**:

@@ -37,11 +37,15 @@ Values in options:
 ## Output
 
 - **Standard output** holds the result: tables for a person, or the JSON document with `--json`.
-- **Standard error** holds warnings and errors, one on each line, each starting with `warning:` or `error:`. With
-  `--json`, warnings and configuration errors are also in the `warnings` and `configuration_errors` lists of the
-  document (see JSON documents).
+- **Standard error** holds warnings and errors, one on each line: warnings start with `warning:`; configuration
+  errors and stop errors start with `error:`. With `--json`, warnings and configuration errors are also in the
+  `warnings` and `configuration_errors` lists of the document, and a command that stops writes one envelope with
+  `command`, `warnings`, `configuration_errors`, and `error` (`code`, `values`, `message`) instead of the document
+  of the command, with no partial line before it (see JSON documents).
 - **Durations** are `H:MM` in tables and whole seconds in JSON; a table shows whole minutes and leaves the seconds out,
-  so it never shows more than the value; hours longer than a day keep their full count, such as `25:30`.
+  so it never shows more than the value; hours longer than a day keep their full count, such as `25:30`. The parts
+  of a total therefore add up to the total in the JSON document; in a table they can add up to less, by less than
+  one minute for each part.
 
 A command asks a question only in `setup` and `purge`, and only when standard input is a terminal. An option gives
 every answer, so a scheduler, a hook, or a script never waits for a person.
@@ -52,23 +56,49 @@ every answer, so a scheduler, a hook, or a script never waits for a person.
 |---|---|
 | 0 | the command completed |
 | 1 | the command stopped with an error and wrote no partial line; events that it appended before the error stay, complete. For example: a configuration file that the ledger cannot read, an instant without a local day, a lock not available within 10 minutes, or a development version that may not write to the store ([architecture.md](architecture.md) › Runtime) |
-| 2 | wrong use: an unknown command or option, or a value in a wrong format |
-| 3 | the command completed, but some figures are not complete: a configuration error, a broken line in a segment, events of a newer schema version that the ledger leaves out ([event-schema.md](event-schema.md) › Encoding), held-back events of a day that its figures cover, or, for the ingestion that finds them, events lost because a native log was deleted before ingestion |
+| 2 | wrong use: an unknown command or option, a value in a wrong format, or an event of a kind that the command cannot act on |
+| 3 | the command completed, but some figures are not complete: a configuration error, a broken line in a segment, events of a newer schema version that the ledger leaves out ([event-schema.md](event-schema.md) › Encoding), held-back events of a day that its figures cover, or events lost because a native log was deleted before ingestion, which sets exit code 3 for the command whose ingestion finds it, also the first ingestion of `setup` |
 
 A warning that does not make a figure incomplete, such as an unknown tool name, a declared value lower than the
 measured value, or two timesheet confirmations of a day from two machines, keeps the exit code 0. `timesheet confirm`
 also keeps it when it warns about held-back events of the day, because its entries are the declaration of the person.
 `config show`, which computes no figures, completes with exit code 0 also when it shows configuration errors.
 
+A stop error has a code, values, and one line of text in the output language; with `--json` the envelope carries
+them in `error` (see Output). The stop errors of the ledger:
+
+| Code | Values | Exit code |
+|---|---|---|
+| `lock_unavailable` | `path` | 1 |
+| `scheduler_failed` | `program`, `exit_code` | 1 |
+| `configuration_unreadable` | `path`, `line` | 1 |
+| `setup_required` | — | 1 |
+| `no_local_day` | `instant` | 1 |
+| `dated_fact_conflict` | `first`, `second` | 1 |
+| `time_zone_missing` | — | 1 |
+| `development_version` | — | 1 |
+| `index_busy` | — | 1 |
+| `target_not_found` | `target` | 1 |
+| `frozen_other_machine` | `id`, `machine` | 1 |
+| `ambiguous_session` | `session_id`, `tools` | 1 |
+| `day_after_today` | `day` | 1 |
+| `set_above_total` | — | 1 |
+| `wrong_use` | `command`, `option` | 2 |
+| `wrong_value` | `key`, `value` | 2 |
+| `wrong_kind` | `command`, `event_uid`, `kind` | 2 |
+
+`scheduler_failed` is the stop form in `schedule create` and `schedule remove`; in `setup` the same event is the
+warning `scheduler_failed` (see JSON documents).
+
 ## Commands
 
 | Command | Use |
 |---|---|
 | `setup` | prepare the ledger on a machine (see Setup) |
-| `schedule show\|create\|remove` | show, create (with `--time <HH:MM>` in the local time of the operating system, default 12:00), or remove the scheduled ingestion ([ingestion.md](ingestion.md) › Frequency); `schedule create` replaces an entry of the ledger that already exists, and `schedule remove` without an entry completes with the warning `no_schedule_entry` |
+| `schedule show\|create\|remove` | show, create (with `--time <HH:MM>` in the local time of the operating system, default 12:00), or remove the scheduled ingestion ([ingestion.md](ingestion.md) › Frequency); `schedule create` replaces an entry of the ledger that already exists, and `schedule remove` without an entry completes with the warning `no_schedule_entry`; when the scheduler of the operating system ends with an error, `schedule create` and `schedule remove` stop with exit code 1 and name the scheduler program and its exit code |
 | `ingest` | run an ingestion; show the number of new events of each folder of native logs |
 | `machine label <text>` | change the label of the machine in its store metadata |
-| `config show` | show the value of each parameter and dated fact with the layer that gives it, and every configuration error |
+| `config show` | show the value of each parameter and dated fact with the layer that gives it, and every configuration error that the person configuration gives alone; a rule conflict needs an event that the two rules match, so the reports show it |
 | `config add <entry> <options>` | append an entry to the person configuration (see Configuration entries) |
 | `sessions <day>` | list the sessions of a local day: identifier, agent tool, start and end (its first and last event in the day), folder, branch (of its last event in the day), and, on one line for each project and work item of the session, the human time that the split rule gives to its human signals and its agent time |
 | `annotate [--tool <agent tool>] --session <id> \| --from <instant> --to <instant>` with at least one of `--project` and `--work-item`, and an optional `--note` | write an annotation; `--session` takes the identifier that `sessions` shows, and `--tool` names the agent tool when two of them hold the same identifier; a work item without `--project` belongs to the project that attribution gives to the event ([metrics.md](metrics.md) › Attribution) |
@@ -77,7 +107,7 @@ also keeps it when it warns about held-back events of the day, because its entri
 | `timesheet confirm <day>` with `--total <duration>`, `--set <value of a timesheet entry>` (repeatable), `--note <text>` | write a timesheet confirmation (see Timesheet) |
 | `timesheet retract <day>` | retract the latest timesheet confirmation of the day |
 | `entries <day>` | list the manual entries, annotations, and retractions whose `timestamp` is in that local day, and the timesheet confirmations whose `day` is that day, with their `event_uid` |
-| `retract <event_uid>` | write a retraction of a manual entry, an annotation, a timesheet confirmation, or a retraction, by the `event_uid` that `entries` shows; a retraction of a retraction brings the event back |
+| `retract <event_uid>` | write a retraction of a manual entry, an annotation, a timesheet confirmation, or a retraction, by the `event_uid` that `entries` shows; a retraction of a retraction brings the event back; an `event_uid` of another kind, such as a purge, stops the command with the exit code for wrong use |
 | `purge` (see Purge) | remove events from the store |
 | `report timesheet --from <day> --to <day>` with `--freeze` and `--note` | the daily timesheet of a period (see Reports); with `--freeze`, also keep it as a frozen report (see Frozen reports) |
 | `report day <day>` with `--freeze` and `--note` | human time, agent time, blocked time, and activity classes of a day, for the person, each project, and each work item; with `--freeze`, also keep it as a frozen report |
@@ -86,9 +116,9 @@ also keeps it when it warns about held-back events of the day, because its entri
 | `version` | show the version of the ledger and of `tzdata` |
 | `--help`, `<command> --help` | show the commands, or the options of one command |
 
-A command that names a target that the store does not hold — `annotate --session`, `retract`, `timesheet retract`, and
-`frozen remove` — stops with exit code 1 and names the target; `annotate --session` without `--tool` does the same when
-two agent tools hold the identifier.
+A command that names a target that the store does not hold — `annotate --session`, `retract`, `timesheet retract`,
+`frozen show`, and `frozen remove` — stops with exit code 1 and names the target; `annotate --session` without
+`--tool` does the same when two agent tools hold the identifier.
 
 ## Setup
 
@@ -107,7 +137,10 @@ change.
    input is not a terminal and `--label` is absent, setup writes no label; the command `machine label` sets it later.
 5. Retention: show the retention period of each agent tool and the advice of [ingestion.md](ingestion.md) › Frequency.
 6. Scheduled ingestion: show the scheduler entry, a daily ingestion at the time of `--time` (default 12:00), and
-   create it only with `--schedule yes` or the consent of the person ([ingestion.md](ingestion.md) › Frequency).
+   create it only with `--schedule yes` or the consent of the person ([ingestion.md](ingestion.md) › Frequency). A
+   version with a development mark shows the entry and never creates it, because the scheduler does not pass the
+   variable that lets such a version write; `schedule create` stops with exit code 1 for such a version. When the
+   scheduler ends with an error, setup warns (`scheduler_failed`) and goes on with step 7.
 7. First ingestion: run `ingest`.
 
 Every other command except `version` and `--help` stops with exit code 1, and asks for `setup`, when the machine has no
@@ -152,7 +185,13 @@ ai-effort-ledger purge (--key <key>... | --writer-version-below <version> [--sou
 A `--key` is the event key as its JSON object, such as `{"source":"ledger","event_uid":"…"}`, or, for a key of the
 source `ledger`, its `event_uid` alone. The command shows the keys that it removes and warns about the keys whose source
 no longer exists ([event-schema.md](event-schema.md) › Keys and invariants). It writes the purge only with `--yes` or
-the consent of the person. `--corrected-version` is not accepted with `--reason forget` (ADR 0015).
+the consent of the person. `--corrected-version` is not accepted with `--reason forget` (ADR 0015). A `--key` whose
+event is a purge stops the command with the exit code for wrong use: a purge cannot be undone, because the copies
+that it removed do not come back.
+
+After it writes the purge, the command removes the copies that the purge blocks from the segments of its own machine,
+as step 10 of an ingestion does ([architecture.md](architecture.md) › Data flow); every other machine removes its own
+copies at its next ingestion.
 
 ## Reports
 
@@ -163,10 +202,13 @@ time, the measured human time with manual entries, and the declared value of a d
 `report day`, `timesheet <day>` — also shows the share of human signals from sessions of unknown invocation and, for a
 measured day, the human time at idle gaps of 5, 10, and 15 minutes and at the idle gap in use
 ([metrics.md](metrics.md) › Uncertainty); each project and work item shows the share of its human time and of its agent
-time that rests on an inferred repository identity. Warnings and configuration errors come before the table.
+time that rests on an inferred repository identity. The command writes its warnings and configuration errors
+before it writes the table.
 
 A report of a period that a frozen report holds also shows, for each day, project, and work item, the difference
 against the frozen figures, and the report parameters, rules, and dated facts that changed (see Frozen reports).
+Only `report timesheet` and `report day` show the differences; `timesheet <day>` shows the proposal and the entries
+of the day and no differences.
 
 In Italian, the titles, the states, and the warnings use the Italian terms of [GLOSSARY.md](../../GLOSSARY.md);
 project names, work items, and notes stay as the person wrote them.
@@ -175,11 +217,13 @@ project names, work items, and notes stay as the person wrote them.
 
 A report command with `--freeze` writes its result and keeps exactly that document as a frozen report: its JSON
 document, report record included, also when the output is text. It writes the file `frozen/<machine>/<id>.json` of the
-store folder ([ingestion.md](ingestion.md) › Store), with `--note` as its note and a random UUID as `<id>`, and shows
-the identifier. A later report of the same period computes with the current report parameters, rules, and dated facts,
+store folder ([ingestion.md](ingestion.md) › Store), with a random UUID as `<id>`, and shows the identifier; the file is
+a JSON object that holds that document unchanged as `document`, `--note` as `note`, and the instant of the freeze as
+`frozen_at`. A later report of the same period computes with the current report parameters, rules, and dated facts,
 and shows the differences against the frozen figures and the report parameters, rules, and dated facts that differ
 between the two report records; where frozen reports overlap, it compares each day with the latest frozen report that
-holds that day. `frozen remove <id>` deletes the file of a frozen report. Only the machine
+holds that day: the one with the latest `frozen_at`, then the identifier as text. `frozen remove <id>` deletes the file
+of a frozen report. Only the machine
 that wrote the file removes it, because each file of the store has one writer; on another machine the command stops
 with exit code 1 and names the machine that wrote it.
 
@@ -219,6 +263,7 @@ the program holds an English and an Italian text for each, and the codes of Phas
 | `declared_project_unknown` | no identity rule, no entry of the person configuration, and no repository identity gives the project identifier of a declared event |
 | `purged_key_source_gone` | a key of a purge names a source that no longer exists: for a source of native logs, one of which no folder remains in the machine configuration; the source `ledger` always exists |
 | `no_schedule_entry` | `schedule remove` finds no entry of the ledger |
+| `scheduler_failed` | in `setup`, the scheduler of the operating system ends with an error and creates no scheduled ingestion: its program and exit code; `setup` goes on |
 
 A code marked "(configuration error)" appears in `configuration_errors`; the others appear in `warnings`. The commands
 that compute figures — `report timesheet`, `report day`, `timesheet <day>`, `sessions <day>` — add `record`, the report
@@ -237,13 +282,13 @@ or a work item is an object with `id` and `name`, or `null` for the unattributed
 | `config add` | `entry` and its keys as appended |
 | `sessions` | `day` and `sessions`, each with `session_id`, `tool`, `start`, `end`, `cwd`, `branch`, and `parts`, each with `project`, `work_item`, `human_time`, and `agent_time` |
 | `annotate`, `entry add`, `timesheet confirm`, `timesheet retract`, `retract` | `event_uid` of the event that the command wrote; `timesheet confirm` also `entries` as in `timesheet` |
-| `timesheet` | `day`, `state`, `total`, `human_time_at_idle_gaps` (measured days only), `unknown_invocation_share`, `entries` as in `report timesheet`, and `context` with `agent_time` and `presence_span` |
+| `timesheet` | `day`, `state`, `total`, `measured_total` (as in `report timesheet`), `human_time_at_idle_gaps` (measured days only), `unknown_invocation_share`, `entries` as in `report timesheet`, each also with `proposed`, the proposed value in whole seconds, and `context` with `agent_time` and `presence_span` |
 | `entries` | `day` and `entries`, each with `event_uid`, `kind`, `timestamp`, and the other fields of the event ([event-schema.md](event-schema.md) › Fields) |
 | `purge` | `keys`, `keys_without_source`, and `written` (true when the command wrote the purge) |
-| `report timesheet` | `days`, each with `day`, `state`, `total`, `human_time_at_idle_gaps` (an object from the idle gap in seconds, as text, to the human time; measured days only), `unknown_invocation_share`, and `entries`, each with `project`, `work_item`, `measured`, `with_manual_entries`, `declared` (`null` on a measured day), `inferred_human_share`, and `inferred_agent_share` |
+| `report timesheet` | `days`, each with `day`, `state`, `total`, `measured_total` (the measured human time of the day in whole seconds; equals `total` on a day without manual entries), `human_time_at_idle_gaps` (an object from the idle gap in seconds, as text, to the human time; measured days only), `unknown_invocation_share`, and `entries`, each with `project`, `work_item`, `measured`, `with_manual_entries`, `declared` (`null` on a measured day), `inferred_human_share`, and `inferred_agent_share` |
 | `report day` | `day`, `state`, `human_time_at_idle_gaps` (measured days only), `unknown_invocation_share`, `person`, `projects`, and `work_items`; `person`, each project of `projects`, and each work item of `work_items` with `human_time`, `agent_time`, `blocked_time`, and `activity_classes` (an object from the activity class to its duration); each project also with `project`, each work item also with `work_item`, and each project and work item also with `inferred_human_share` and `inferred_agent_share` |
 | `report timesheet --freeze`, `report day --freeze` | also `frozen_id`, the identifier of the frozen report |
-| `frozen list` | `frozen`, each with `id`, `report`, `from`, `to`, `note`, and `machine` |
+| `frozen list` | `frozen`, each with `id`, `report`, `from`, `to`, `note`, `machine`, and `frozen_at` |
 | `frozen show` | `frozen`, the frozen report; `differences`, for each day, project, and work item whose figures differ: the frozen value and the value of now; and `changed`, the report parameters, rules, and dated facts that differ between the two report records, each with its frozen value and its value of now |
 | `frozen remove` | `id` of the removed frozen report |
 | `index rebuild` | `segments` and `events`, the numbers that the local index holds |

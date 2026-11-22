@@ -38,7 +38,7 @@ entry of an array of tables:
 | Entry | Keys | Content |
 |---|---|---|
 | `[[time_zone]]` | `zone`, `from` | an IANA time zone and the UTC instant from which it is valid |
-| `[[day_start]]` | `hour`, `from` | a day start hour (a TOML local time) and the local date from which it is valid |
+| `[[day_start]]` | `hour`, `from` | a day start hour and the local date from which it is valid |
 | `[[project]]` | `id`, `name` | a project identifier and the name that reports show for it (ADR 0019) |
 | `[[work_item]]` | `project`, `id`, `name` | a work item identifier of a project and the name that reports show for it (ADR 0019) |
 | `[[identity_rule]]` | `repository`, `folder`, `branch`, `from`, `to`, `project` | the conditions it matches, at least one: a repository identity, an absolute folder, a pattern of branch names, and the first and last local day; and the project identifier it gives |
@@ -46,6 +46,10 @@ entry of an array of tables:
 | `[[label_key]]` | `key` | one key that the `labels` field of an event can hold (Phase 2) |
 | `[[hourly_rate]]` | `amount`, `currency`, `from` | an amount, a currency, and the date from which it is valid (Phase 2) |
 | `[[cost_source]]` | `name`, `type` | a cost source and its type (Phase 2) |
+
+A dated value — an instant, a local date, or an hour — is either a TOML value of its type, such as
+`2026-12-01T00:00:00Z` or `04:00:00`, or a basic string in the form of [command-line.md](command-line.md) › Form, such
+as `"04:00"`; the command line writes basic strings (see Writes).
 
 Single values are keys outside these entries:
 
@@ -82,7 +86,8 @@ earlier instants, and a report of any period recomputes with the values that app
 start to the next start in the same list, never before its own start; two entries of one list with the same start leave
 instants without a local day, so every command that needs local days stops with an error that names the two entries. An
 instant before the earliest entry of the time-zone history or of the day start hours has no local day: a report that
-needs it stops with an error that names the instant.
+needs it stops with an error that names the instant. A value that the reader cannot accept, such as a time
+zone that `tzdata` does not hold, makes the file unreadable: the command stops with the line of the entry.
 
 These two errors stop the command; they are not configuration errors. A configuration error leaves figures that the
 report can still compute, and without a local day no figure of that instant can be computed.
