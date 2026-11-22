@@ -214,8 +214,8 @@ def test_version_matches_pyproject(self):
     self.assertEqual(importlib.metadata.version("ai-effort-ledger"), declared)
 
 def test_console_script_runs_main(self):
-    names = {e.name for e in importlib.metadata.entry_points(group="console_scripts")}
-    self.assertIn("ai-effort-ledger", names)
+    entries = {e.name: e.value for e in importlib.metadata.entry_points(group="console_scripts")}
+    self.assertEqual(entries.get("ai-effort-ledger"), "ai_effort_ledger.cli:main")
 
 def test_only_tzdata_at_run_time(self):
     self.assertEqual(importlib.metadata.requires("ai-effort-ledger"), ["tzdata"])

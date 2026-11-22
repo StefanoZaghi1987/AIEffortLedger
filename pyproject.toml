@@ -1,0 +1,14 @@
+[build-system]
+requires = ["flit_core >=4.2,<5"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "ai-effort-ledger"
+version = "0.1.0.dev0"
+description = "Measure human time and agent time from native agent-session logs."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["tzdata"]
+
+[project.scripts]
+ai-effort-ledger = "ai_effort_ledger.cli:main"
