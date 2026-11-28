@@ -1,0 +1,1 @@
+{"frozen": [{"id": "10000000-0000-4000-8000-000000000001", "report": "report timesheet", "from": "2026-11-20", "to": "2026-11-21", "note": "Invented note of the frozen report.", "machine": "machine-one", "machine_label": "Invented office laptop", "frozen_at": "2026-11-24T12:00:00.000Z"}], "command": "frozen list", "warnings": [], "configuration_errors": []}

@@ -1,0 +1,18 @@
+uso: ai-effort-ledger entry add [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                                --from ISTANTE --to ISTANTE --mode {overlapping,additional}
+                                [--project PROGETTO] [--work-item UNITÀ DI LAVORO]
+                                [--note TESTO]
+
+scrivere una registrazione manuale
+
+opzioni:
+  --store CARTELLA                 usare un'altra cartella dell'archivio solo per questo comando
+  --json                           scrivere il risultato come un documento JSON
+  --language {en,it}               la lingua dell'output
+  -h, --help                       mostra questo aiuto ed esce
+  --from ISTANTE                   l'inizio dell'intervallo
+  --to ISTANTE                     la fine dell'intervallo
+  --mode {overlapping,additional}  come la registrazione incontra il tempo persona misurato
+  --project PROGETTO               il progetto, come identificativo o come nome
+  --work-item UNITÀ DI LAVORO      l'unità di lavoro, come identificativo o come nome
+  --note TESTO                     una nota per l'evento o per il report

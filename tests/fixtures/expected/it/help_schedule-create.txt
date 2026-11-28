@@ -1,0 +1,11 @@
+uso: ai-effort-ledger schedule create [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                                      [--time ORA]
+
+creare o sostituire l'acquisizione pianificata
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce
+  --time ORA          l'ora del giorno dell'acquisizione pianificata

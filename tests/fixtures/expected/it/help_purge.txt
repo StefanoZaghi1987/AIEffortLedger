@@ -1,0 +1,22 @@
+uso: ai-effort-ledger purge [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                            (--key CHIAVE | --writer-version-below VERSIONE) [--source SORGENTE]
+                            --reason {content,correction,forget} [--corrected-version VERSIONE]
+                            [--yes]
+
+rimuovere eventi dall'archivio
+
+opzioni:
+  --store CARTELLA                      usare un'altra cartella dell'archivio solo per questo
+                                        comando
+  --json                                scrivere il risultato come un documento JSON
+  --language {en,it}                    la lingua dell'output
+  -h, --help                            mostra questo aiuto ed esce
+  --key CHIAVE                          una chiave dell'evento da rimuovere, come oggetto JSON o
+                                        come identificativo dell'evento
+  --writer-version-below VERSIONE       rimuovere ciò che una versione precedente a questa ha
+                                        scritto
+  --source SORGENTE                     la sorgente delle chiavi, per una rimozione in base alla
+                                        versione di scrittura
+  --reason {content,correction,forget}  il motivo della rimozione degli eventi
+  --corrected-version VERSIONE          la versione di scrittura da cui le copie tornano
+  --yes                                 scrivere senza chiedere alla persona

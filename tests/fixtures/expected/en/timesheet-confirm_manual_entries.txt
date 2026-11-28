@@ -1,0 +1,5 @@
+Event identifier: 00000000-0000-4000-8000-000000000001
+
+Project  Work item  Measured  With manual entries  Declared  Inferred human share  Inferred agent share  Proposed
+Beta                    0:00                 0:40      0:45                  0.00                  0.00      0:45
+Alpha                   0:01                 0:00      0:00                  0.00                  0.00

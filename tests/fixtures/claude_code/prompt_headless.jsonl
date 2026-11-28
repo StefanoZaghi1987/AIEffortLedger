@@ -1,0 +1,1 @@
+{"type":"user","uuid":"4e4e0000-0000-4000-8000-00000000004e","timestamp":"2026-11-19T12:30:00.000Z","version":"2.1.0","sessionId":"4e4e4e4e-4e4e-54e4-94e4-4e4e4e4e4e4e","gitBranch":"main","entrypoint":"sdk-cli","cwd":"D:\\Work\\Product","origin":{"kind":"human"},"message":{"role":"user","content":"Run the calderbank checks and report."}}

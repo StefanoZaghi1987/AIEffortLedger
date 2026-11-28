@@ -1,0 +1,2 @@
+segmenti: 1
+eventi: 6

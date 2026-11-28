@@ -1,0 +1,4 @@
+chiavi
+{"event_uid": "10000000-0000-4000-8000-000000000001", "source": "ledger"}
+{"native_id": "invented-record", "source": "invented-source"}
+scritto: sì

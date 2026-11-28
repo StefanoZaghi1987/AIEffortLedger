@@ -33,6 +33,8 @@
   [docs/spec/architecture.md](docs/spec/architecture.md); a module never imports a module that depends on it.
 - Tests: `python -I -m unittest discover -s tests`, in a virtual environment with the package installed in editable mode
   (`uv pip install -e .`). Write the failing test first. Fixtures are written by hand with invented text (see Privacy).
+- The static check: `python -I tests/style.py`. The benchmark: `python -I tests/benchmark.py`, by hand on a laptop
+  before each release ([architecture.md](docs/spec/architecture.md) › Tests).
 - Only the standard library and `tzdata` at run time, and `flit_core` to build
   ([build-tool-2026-11.md](docs/research/build-tool-2026-11.md)). Ask the owner before any other dependency, also one
   for development only.

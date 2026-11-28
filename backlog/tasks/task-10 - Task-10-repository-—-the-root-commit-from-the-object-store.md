@@ -1,9 +1,10 @@
 ---
 id: TASK-10
 title: 'Task 10: repository — the root commit from the object store'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-22 11:32'
+updated_date: '2026-11-27 12:04'
 labels: []
 milestone: m-1
 dependencies: []
@@ -23,5 +24,11 @@ Execute Task 10 of docs/plans/phase-1-implementation.md exactly as written: its 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every step checkbox of the plan task is checked and its named tests pass
-- [ ] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
+- [x] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+repository — the root commit read from the object store (loose and packed objects, no git command), built on stream/repository. Checkpoint commit a723adc (suite 39 tests OK, style 0); review clean. Evidence: task-10-report.md.
+<!-- SECTION:FINAL_SUMMARY:END -->

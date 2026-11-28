@@ -1,0 +1,30 @@
+usage: ai-effort-ledger config add [--store FOLDER] [--json] [--language {en,it}] [-h]
+                                   [--zone ZONE] [--from INSTANT|DAY] [--hour HOUR]
+                                   [--id IDENTIFIER] [--name NAME] [--project PROJECT]
+                                   [--work-item WORK ITEM] [--repository REPOSITORY]
+                                   [--folder FOLDER] [--branch BRANCH] [--to DAY] [--tool TOOL]
+                                   [--category TOOL CATEGORY] ENTRY
+
+append an entry to the person configuration
+
+arguments:
+  ENTRY
+
+options:
+  --store FOLDER            use another store folder for this command only
+  --json                    write the result as one JSON document
+  --language {en,it}        the language of the output
+  -h, --help                show this help message and exit
+  --zone ZONE               the IANA name of the time zone
+  --from INSTANT|DAY        the instant or the day from which the entry holds
+  --hour HOUR               the day start hour: the local hour at which a local day starts
+  --id IDENTIFIER           the identifier of the entry, or of the work item
+  --name NAME               the name that the reports show
+  --project PROJECT         the project, as its identifier or its name
+  --work-item WORK ITEM     the work item, as its identifier or its name
+  --repository REPOSITORY   the repository the rule matches, as its normalized URL
+  --folder FOLDER           the folder the rule matches
+  --branch BRANCH           the branch the rule matches
+  --to DAY                  the last day
+  --tool TOOL               the agent tool, or the tool name of a category rule
+  --category TOOL CATEGORY  the tool category of the rule

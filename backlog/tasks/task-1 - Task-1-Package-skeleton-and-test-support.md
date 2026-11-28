@@ -4,7 +4,7 @@ title: 'Task 1: Package skeleton and test support'
 status: Done
 assignee: []
 created_date: '2026-11-22 11:31'
-updated_date: '2026-11-22 11:54'
+updated_date: '2026-11-27 12:03'
 labels: []
 milestone: m-0
 dependencies: []
@@ -23,9 +23,11 @@ Execute Task 1 of docs/plans/phase-1-implementation.md exactly as written: its F
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Every step checkbox of the plan task is checked and its named tests pass
+- [ ] #1 Every step checkbox of the plan task is checked and its named tests pass
 - [x] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
 <!-- AC:END -->
+
+
 
 ## Final Summary
 

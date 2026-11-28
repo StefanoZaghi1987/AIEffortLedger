@@ -1,0 +1,1 @@
+{"sources": [{"source": "claude-code-jsonl", "folder": "<root>/logs", "new_events": 1, "sessions_held_back": 0}], "command": "ingest", "warnings": [], "configuration_errors": []}

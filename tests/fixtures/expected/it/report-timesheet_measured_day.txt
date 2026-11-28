@@ -1,0 +1,12 @@
+2026-11-20  giorno misurato
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+Alpha                          0:01                       0:01                             0.00                  0.00
+totale                         0:01                       0:01
+
+quota di avvio non nota  0.00
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           0:01
+0:10                           0:01
+0:15                           0:01

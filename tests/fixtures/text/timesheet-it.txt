@@ -1,0 +1,23 @@
+2026-06-15  giorno misurato
+progetto        unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+Alpha           Feature 142          1:00                       1:06                             0.50                  0.25
+Alpha                                0:56                       0:50                             0.00                  0.00
+non attribuito                       0:00                       0:03                             0.00                  0.00
+totale                               1:56                       2:00
+
+quota di avvio non nota  0.25
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           1:55
+0:10                           1:50
+0:15                           1:45
+
+2026-06-16  giorno dichiarato
+progetto        unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+Alpha           Feature 142          1:00                       1:06        1:30                 0.50                  0.25
+Alpha                                0:56                       0:50        0:30                 0.00                  0.00
+non attribuito                       0:00                       0:03        0:00                 0.00                  0.00
+totale                               1:56                                   2:00
+
+quota di avvio non nota  0.25

@@ -1,0 +1,20 @@
+uso: ai-effort-ledger annotate [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                               [--tool TOOL] (--session SESSIONE | --from ISTANTE)
+                               [--to ISTANTE] [--project PROGETTO] [--work-item UNITÀ DI LAVORO]
+                               [--note TESTO]
+
+scrivere un'annotazione
+
+opzioni:
+  --store CARTELLA             usare un'altra cartella dell'archivio solo per questo comando
+  --json                       scrivere il risultato come un documento JSON
+  --language {en,it}           la lingua dell'output
+  -h, --help                   mostra questo aiuto ed esce
+  --tool TOOL                  lo strumento agentico, o il nome di tool di una regola di
+                               categoria
+  --session SESSIONE           l'identificativo della sessione, come lo mostra sessions
+  --from ISTANTE               l'inizio dell'intervallo
+  --to ISTANTE                 la fine dell'intervallo
+  --project PROGETTO           il progetto, come identificativo o come nome
+  --work-item UNITÀ DI LAVORO  l'unità di lavoro, come identificativo o come nome
+  --note TESTO                 una nota per l'evento o per il report

@@ -1,0 +1,4 @@
+2026-11-20  sessioni
+sessione       tool         inizio                    fine                      cartella           ramo  progetto  unità di lavoro  tempo persona  tempo agente
+session-alpha  claude-code  2026-11-20T09:00:00.000Z  2026-11-20T09:20:00.000Z  <root>/work/alpha        Alpha     Story One                 0:01          0:20
+session-beta   claude-code  2026-11-20T11:00:00.000Z  2026-11-20T11:00:00.000Z  <root>/work/beta         Beta      Story Two                 0:01          0:00

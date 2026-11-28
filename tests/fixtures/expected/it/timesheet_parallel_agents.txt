@@ -1,0 +1,17 @@
+2026-11-20  giorno misurato
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta  proposto
+Beta                           0:10                       0:10                             0.00                  0.00      0:15
+Alpha                          0:01                       0:01                             0.00                  0.00      0:15
+totale                         0:11                       0:11
+
+tempo agente  0:30
+rapporto di parallelismo  1.50
+arco di presenza  0:10
+
+quota di avvio non nota  0.00
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           0:02
+0:10                           0:11
+0:15                           0:11

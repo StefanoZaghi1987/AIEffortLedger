@@ -1,0 +1,11 @@
+usage: ai-effort-ledger schedule create [--store FOLDER] [--json] [--language {en,it}] [-h]
+                                        [--time HOUR]
+
+create or replace the scheduled ingestion
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit
+  --time HOUR         the time of day of the scheduled ingestion

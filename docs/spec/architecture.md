@@ -13,6 +13,9 @@ publication on the package index is a later decision. It uses only the standard 
 operating system, so that all machines of a person compute the same local days, and every report records the version of
 `tzdata` (ADR 0022).
 
+Removing the package removes neither the entry of the scheduled ingestion nor the folders of a machine: `schedule
+remove` runs before it, and a person deletes the store folder and the machine-local data folder by hand.
+
 The build tool is `flit_core` (`requires = ["flit_core >=4.2,<5"]`, `build-backend = "flit_core.buildapi"`): a
 pure-Python package without dependencies, maintained by the PyPA, that installers download only to build the package
 ([build-tool-2026-11.md](../research/build-tool-2026-11.md)). `pyproject.toml` holds the metadata only in its standard
@@ -36,19 +39,19 @@ is `1`; otherwise every command that writes stops with exit code 1. The tests se
 | `events` | the event schema: fields, encoding, validation, event keys, the merge rule of two copies, reading of newer schema versions | — |
 | `platform` | folders of the operating system, installation identifier, file lock, scheduler entries | — |
 | `repository` | repository identity from the files of a repository, without git | — |
-| `language` | the English and Italian texts of titles, states, warnings, and errors, by code | — |
-| `configuration` | reading the machine configuration and the person configuration, appending entries, dated facts and rules as values | `platform` |
+| `language` | the English and Italian texts of the output, by key: the titles and the labels of the tables, the states, the warnings and the errors by code, the help of the commands, the questions that a command asks the person, and the notes of the reports | — |
+| `configuration` | reading the machine configuration and the person configuration, appending entries, dated facts and rules as values | `platform`, `language` |
 | `store` | segments: append, read, purge, broken lines, store metadata, frozen reports | `events`, `platform` |
 | `adapters` | one subpackage for each adapter; `claude_code` turns native logs into complete events; each adapter declares the folders of native logs and the retention setting of its agent tools | `events` |
-| `index` | the local index of a store | `store` |
+| `index` | the local index of a store | `events`, `store` |
 | `days` | local days from the time-zone history and the day start hours | `configuration` |
-| `ingestion` | the ingestion of all adapters into the store | `adapters`, `repository`, `store`, `index`, `configuration`, `platform` |
-| `selection` | the events of a report: its period with whole sessions, without the events that a purge blocks or that a retraction cancels | `index`, `days` |
+| `ingestion` | the ingestion of all adapters into the store | `events`, `platform`, `repository`, `configuration`, `store`, `adapters`, `index` |
+| `selection` | the events of a report: its period with whole sessions, without the events that a purge blocks or that a retraction cancels | `events`, `configuration`, `store`, `index`, `days` |
 | `metrics` | turns, measured human time, manual entries and their union with measured human time, agent time, blocked time, activity classes of the person | `events` |
-| `attribution` | matching of identity rules and category rules, annotations, names of projects and work items, the split rule, unattributed time, activity classes of projects and work items | `metrics`, `configuration`, `days` |
-| `declared` | timesheet proposals, timesheet confirmations, declared days | `attribution`, `days` |
-| `setup` | the setup steps and the scheduled ingestion | `configuration`, `platform`, `ingestion` |
-| `reports` | reports, their record, frozen reports and differences, text and JSON output | `declared`, `selection`, `language` |
+| `attribution` | matching of identity rules and category rules, annotations, names of projects and work items, the split rule, unattributed time, activity classes of projects and work items | `events`, `language`, `configuration`, `days`, `metrics` |
+| `declared` | timesheet proposals, timesheet confirmations, declared days | `events`, `days`, `metrics`, `attribution` |
+| `setup` | the setup steps and the scheduled ingestion | `platform`, `configuration`, `store`, `adapters`, `ingestion` |
+| `reports` | reports, their record, the parallel ratio of the agent time, frozen reports and differences, text and JSON output | `events`, `language`, `configuration`, `store`, `selection`, `declared` |
 | `cli` | commands, options, exit codes; the only module that writes to the terminal, in the language of the output | all |
 
 Build order: `events`, `platform`, `repository`, `language` → `configuration`, `store`, `adapters` → `index`, `days` →
@@ -157,7 +160,8 @@ against them, is in [command-line.md](command-line.md) › Frozen reports.
 ## Tests
 
 Tests use `unittest` of the standard library: `python -I -m unittest discover -s tests`, in a virtual environment with
-the package installed in editable mode (`uv pip install -e .`).
+the package installed in editable mode (`uv pip install -e .`, or `python -m pip install -e .` as the workflow
+does).
 
 - **Unit tests** for each module.
 - **Scenario tests**: the scenarios of the prototype ([validation-2026-11.md](../research/validation-2026-11.md)), with
@@ -187,17 +191,22 @@ marks _Avoid_ ([lint-tool-2026-11.md](../research/lint-tool-2026-11.md)). It rea
 [GLOSSARY.md](../../GLOSSARY.md), without the text in parentheses of an entry; a word that a glossary term or the title
 of the glossary holds is not named, because an _Avoid_ word is wrong only for its own term; an entry of more than one
 word is named only as that sequence of words. Names that the code uses from other code, such as the standard library,
-are not checked. The workflow uses only actions that GitHub publishes, `actions/checkout` and `actions/setup-python`,
-each fixed to a commit hash.
+are not checked. The check also reads the table of Modules and the line of the build order from this document, collects
+every import statement of the package from every file under `src/ai_effort_ledger/` — a module that a string loads at
+run time is not a statement — and names an import that the row of its module does not list, a dependency of a row that
+no file of the module imports, a dependency or an import that stands below its module in the line of the build order,
+and a cycle of the import graph. The workflow uses only actions that GitHub publishes, `actions/checkout` and
+`actions/setup-python`, each fixed to a commit hash.
 
 The validation on real native logs is not a test: it runs by hand on a copy of the native logs, writes only to a folder
 that git ignores, and its ratios go to `docs/research/`.
 
 The benchmark is not a test either. `tests/benchmark.py`, whose name does not match the `test*.py` pattern of
 `unittest`, writes invented native logs with the record types of the adapter fixtures: 30 days × 10 sessions a day ×
-1,000 lines a session, 300,000 lines, by default; the size is an option of the script. It times the first ingestion of
-these native logs and a daily timesheet of one month. A person runs it by hand on a laptop before each release, and
-writes the seconds and the processor of the laptop in a dated note in `docs/research/`.
+1,000 lines a session, 300,000 lines, by default; the size is an option of the script. It times, through the command
+line, the first ingestion of these native logs, a daily timesheet of one month, and the timesheet and the report of
+one day. A person runs it by hand on a laptop before each release, and writes the seconds and the processor of the
+laptop in a dated note in `docs/research/`.
 
 ## Release
 
@@ -225,3 +234,7 @@ A release is a tag `v<version>` of the repository (see Runtime). The steps, in t
 
 - Publication of the package on the package index (see Runtime): to decide when a person asks to install the package
   from the index; until then a release is a tag of the repository.
+- The docstring of `_run_program` says the schedulers are the only programs the ledger runs, citing Runtime — which
+  also names `ioreg` on macOS; and `_ioreg_text` (`platform/identity.py`) runs `ioreg` directly, without the
+  byte-degrading guard that `_run_program` gives a program's output. To rule: the sentence trued to the section it
+  cites, and the `ioreg` read routed through the guarded runner or given the same guard.

@@ -14,7 +14,6 @@ How the ledger turns events into effort. Terms follow [GLOSSARY.md](../../GLOSSA
 | Token usage | tokens per category and model | sum | sum | agent outputs, declared usage |
 | List-price cost (Phase 2) | currency | sum | sum | token usage, request counts, and price factors × price table |
 | Actual cost (Phase 2) | currency | sum | sum | cost sources, declared usage |
-| Person cost (Phase 2) | currency | sum | sum | human time × hourly rate |
 
 The quantities are never added together or converted into each other (ADR 0001). Agent-hours of parallel agents add
 up, so agent time can be longer than the clock time in which it happens; activity classes are clock time of one
@@ -129,7 +128,9 @@ because the settle time completed the session without it, waits until the next e
 or the last event of the session, as a decision request without a decision does (see Blocked time).
 
 The agent time of a set of agents is the sum over the agents. The ratio of this sum to the union of the same intervals
-shows how much agents work in parallel.
+is the parallel ratio: 1 when no two agents work at the same instant, and above 1 when they do. Reports show it beside
+the agent time of the person, of each project, and of each work item ([command-line.md](command-line.md) › JSON
+documents).
 
 ## Blocked time
 
@@ -154,10 +155,16 @@ time with manual entries, agent time, and blocked time.
 The Blocked class is therefore blocked time with no person present and no agent working. An instant in which the
 person is present and an agent is blocked is person only: the person is the one who must act.
 
-A project, or a work item, has its own activity classes: they use the human time that the split rule gives to it and
-the agent time and blocked time attributed to it, and they have no Idle class. While the person works on one project
-and an agent works on another, the first project is person only and the second is unattended. The classes of the
-projects therefore do not add up to the classes of the person, and reports say so.
+A project, a work item, or the unattributed time has its own activity classes: they use its measured human time with
+manual entries and the agent time and blocked time attributed to it, and they have no Idle class; as for the person,
+its classes person only and supervised add up to its human time with manual entries. While the person works on one
+project and an agent works on another, the first project is person only and the second is unattended. The classes of
+the projects therefore do not always add up to those of the person, and reports say so: the person counts each
+instant once, over every project, while a project or a work item counts an instant by its own human time, its own
+agent time, and its own blocked time. The agent time of one instant can belong to several projects, and an instant
+where the person is present on one project while an agent of another works is supervised for the person, person only
+for the first project, and unattended for the second. An instant of blocked time of one project where the person is
+present on another is blocked for the first project and person only for the second and for the person.
 
 ## Calendar time
 
@@ -169,28 +176,27 @@ work, and do not count.
 ## Attribution
 
 Each event is attributed to independent dimensions: person, machine, tool, model, project, and work item; provider,
-release, and milestone from Phase 2; cost centre from Phase 4. A report is a grouping over a
-period. Identity rules resolve the project of each event at
-report time from its repository identity, folder, branch, and date; by default one repository is one project (ADR 0009).
-A project is a project identifier with a name (ADR 0019): by default the identifier is the repository identity, and the
-name is the last part of its path, or the first 12 characters of a root-commit hash; a project identifier that is not a
-repository identity is its own name; an entry of the person configuration gives another name. When two project
-identifiers have the same default name, reports show as many parts of the path as make the names different; a name that
-the person configuration gives to two project identifiers is a configuration error, and the report shows both
-identifiers. Reports group by project identifier and show the name, and they warn about declared events whose project
-identifier no identity rule, no entry of the person configuration, and no repository identity gives (ADR 0019). A work
-item has a work item identifier and a name in the same way; without an entry of the person configuration, its name is
-its identifier. Work items come from annotations and declared events, and a work item always belongs to one project. An
-event without its own folder, branch, or repository identity takes those of the previous event of its session; events
-with the same `timestamp` take them in the order of their event keys.
-Annotations override the derived attribution of a session or an interval. An annotation that gives a work item and no
-project keeps the project that attribution gives to the event; an annotation that gives a project and no work item also
-removes the work item of earlier annotations, which belongs to the earlier project. When the event has no project, the
-work item of an annotation does not apply: the event stays unattributed, and the report warns and names the annotation.
-An interval annotation applies to the events whose `timestamp` is inside its interval. Where annotations overlap, they
-apply in the order of their `timestamp` with these rules, and equal instants resolve by event key. Where manual entries
-in mode `overlapping` overlap each other, the one with the latest `timestamp` applies, and equal instants resolve by
-event key. Events whose project cannot be resolved, also because of a configuration error
+provider from Phase 2. A report is a grouping over a period. Identity rules resolve the project of each
+event at report time from its repository identity, folder, branch, and date; by default one repository is one project
+(ADR 0009). A project is a project identifier with a name (ADR 0019): by default the identifier is the repository
+identity, and the name is the last part of its path, or the first 12 characters of a root-commit hash; a project
+identifier that is not a repository identity is its own name; an entry of the person configuration gives another name.
+When two project identifiers have the same default name, reports show as many parts of the path as make the names
+different; a name that the person configuration gives to two project identifiers is a configuration error, and the
+report shows both identifiers. Reports group by project identifier and show the name, and they warn about declared
+events whose project identifier no identity rule, no entry of the person configuration, and no repository identity gives
+(ADR 0019). A work item has a work item identifier and a name in the same way; without an entry of the person
+configuration, its name is its identifier. Work items come from annotations and declared events, and a work item always
+belongs to one project. An event without its own folder, branch, or repository identity takes those of the previous
+event of its session; events with the same `timestamp` take them in the order of their event keys. Annotations override
+the derived attribution of a session or an interval. An annotation that gives a work item and no project keeps the
+project that attribution gives to the event; an annotation that gives a project and no work item also removes the work
+item of earlier annotations, which belongs to the earlier project. When the event has no project, the work item of an
+annotation does not apply: the event stays unattributed, and the report warns and names the annotation. An interval
+annotation applies to the events whose `timestamp` is inside its interval. Where annotations overlap, they apply in the
+order of their `timestamp` with these rules, and equal instants resolve by event key. Where manual entries in mode
+`overlapping` overlap each other, the one with the latest `timestamp` applies, and equal instants resolve by event key.
+Events whose project cannot be resolved, also because of a configuration error
 ([configuration.md](configuration.md) › Matching), go to the unattributed bucket; an event with a project and no work
 item stays in the part of its project that has no work item. Blocked time takes the attribution of its decision request.
 Reports show the share of the human time and of the agent time of each project and work item that rests on an inferred
@@ -231,19 +237,27 @@ of daylight saving repeats it, and the first instant after the change when the c
 
 Weeks come with the weekly reports of Phase 2. A week starts on the first day of the week, a report parameter that is
 Monday by default, as in ISO 8601. A week is identified by the date of its first day; when the first day is Monday,
-reports also show the ISO 8601 week number. The rule applies to the whole report, so the weeks of all persons in one
-report are the same.
+reports also show the ISO 8601 week number. The rule applies to the whole report.
 
 ## Cost
 
 Cost is computed from Phase 2. List-price cost uses the token usage, the request counts, and the price factors of each
-agent output with the price table valid on its date, keyed by provider and model identifier (ADR 0007, ADR 0024). A
-token category, a request type, or a value of a price factor without a price makes the cost unknown, never zero and
-never a guess. Actual cost of a `subscription` cost source divides the fee of each billing period over the usage of that
+agent output with the price table valid on its date, keyed by provider and model identifier (ADR 0007, ADR 0024). The
+price table is layered: the rows that ship with the program are its baseline, and a row of the person wins over the
+baseline row with the same provider, model, and key in the interval in which the row of the person is valid
+([configuration.md](configuration.md) › Format). The provider of a model comes from the provider table by its exact
+identifier; the table follows the same layers, because the native log of a session names the model, not the provider
+(ADR 0007). A token category, a request type, or a value of a price factor without a price makes the cost unknown, never
+zero and never a guess, and the report names every model in use with no valid price and every model identifier with no
+provider. Actual cost of a `subscription` cost source divides the fee of each billing period over the usage of that
 period that the ledger knows (ADR 0013): the imported total when an imported cost source gives one, otherwise the sum of
-measured and declared usage. With an imported total, the share that no measured or declared usage explains is
-unattributed; without one, the report states that the unmeasured share is unknown and that the allocated cost of each
-project is an upper bound.
+measured and declared usage. The division is in proportion to list-price cost: the allocated cost of a project is the
+fee of the billing period times the list-price cost of the project, divided by the list-price cost of all the usage of
+the billing period that the ledger knows. A missing price makes the share unknown, never zero, and the report says so.
+With an imported total, the share that no measured or declared usage explains is unattributed; without one, the report
+states that the unmeasured share is unknown and that the allocated cost of each project is an upper bound. Costs in
+different currencies do not combine: every row of the price table carries its currency, and the report shows a total for
+each currency.
 
 ## Reproducibility
 
@@ -272,16 +286,10 @@ minutes and at the idle gap in use, so that the reader sees how much the figure 
   of that output, and by how much. To specify at the start of Phase 2, with the declared days of Phase 1 as evidence.
 - Unit of calendar time: elapsed days, days with activity, or working days; and how a single late event affects it. To
   specify at the start of Phase 2.
-- Releases and milestones: how events are attributed to a release (date window, git tag, release line, explicit
-  mapping), the bucket of unreleased work, and the rule for milestones. To specify at the start of Phase 2.
 - Work items and estimates: work-item type, size class (from size counters, ADR 0012, and from repositories), the rule
   for AI mode, the reference class of the estimator, completion, how an estimate is recorded with the instant of its
   recording, and the check that an estimate precedes the first event of its work item. To specify at the start of
-  Phase 5.
-- Cost details: the basis that divides a subscription (tokens or list-price cost), how the ledger knows which cost
-  source paid each agent output (subscription or metered account), billing periods that differ from report periods,
-  provider resolution from the provider hint, token categories of other providers, the prices of request types and price
-  factors, and how costs in different currencies combine (for example a dated table of exchange rates). To specify at
-  the start of Phase 2.
-- Team export: format, granularity, version of schema and parameters, stable export identity, person identity, shared
-  identity rules, and which fields are removed. To specify at the start of Phase 4.
+  Phase 4.
+- Cost details: how the ledger knows which cost source paid each agent output (subscription or metered account), billing
+  periods that differ from report periods, and the token categories of other providers. To specify at the start of
+  Phase 2.

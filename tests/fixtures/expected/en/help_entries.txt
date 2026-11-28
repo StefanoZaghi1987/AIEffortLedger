@@ -1,0 +1,12 @@
+usage: ai-effort-ledger entries [--store FOLDER] [--json] [--language {en,it}] [-h] DAY
+
+list the declared events of a local day
+
+arguments:
+  DAY
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

@@ -1,0 +1,2 @@
+2026-11-19  Sessions
+Session  Tool  Start  End  Folder  Branch  Project  Work item  Human time  Agent time

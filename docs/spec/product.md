@@ -17,18 +17,17 @@ measurement showed that they were slower (same note).
 
 ## Persons
 
-- **A person** who works with agent tools, on one or more machines, and wants a timesheet and an estimate basis from
-  what the tools record. The person is the only reader of their store (ADR 0003).
-- **A team** (Phase 4), whose members combine team exports that each person reviews before sharing.
+A **person** who works with agent tools, on one or more machines, wants a timesheet and an estimate basis from what
+the tools record. The person is the only reader of their store (ADR 0003).
 
 ## Non-goals
 
-- No monitoring of a person by another person: data leaves the store only in a team export that the person reviews.
-- No recording of the screen, the keyboard, or the applications of a person; a human-activity tracker is at most an
-  optional source (Phase 6).
+- No monitoring of a person by another person: no command sends data to another person, and data leaves the store
+  only when the person gives it.
+- No recording of the screen, the keyboard, or the applications of a person.
 - No text of prompts, responses, tool input, or code in the store (ADR 0003).
 - No network access, no server, no telemetry: the ledger itself opens no connection in any phase; data that lives on
-  the network, such as provider analytics (Phase 6), arrives as a file that the person exported.
+  the network, such as the usage that a provider shows, arrives as a file that the person exported (ADR 0025).
 - No conversion of agent time into human time, and no single "hours" figure (ADR 0001).
 - No score or ranking of persons, and no invoicing.
 - No change to what another program owns: the ledger shows and advises, the person changes settings of agent tools.
@@ -39,11 +38,9 @@ measurement showed that they were slower (same note).
 |---|---|
 | 0 | Glossary, specifications, ADRs, measurement prototype, validation, review |
 | 1 | Core: the daily timesheet of one person, from Claude Code and Claude Desktop (see Phase 1) |
-| 2 | Attribution and reports: releases and milestones, weekly, monthly, and custom periods, declared usage, list-price cost, actual cost and subscription division, hourly rates and person cost, labels and session titles |
-| 3 | Coverage: Claude Code plugin with skills and hooks; integration for other agent tools (see To be confirmed); an adapter for another agent tool, such as Codex, only with real samples from a person who uses that tool |
-| 4 | Team: team export, merge, team reports, project configuration, cost centres, pseudonym |
-| 5 | Estimation: work-item types and size classes, estimates, estimate-versus-actuals dataset, estimator |
-| 6 | Optional: OpenTelemetry ingestion, ingestion of provider analytics, human-activity tracker as a source |
+| 2 | Attribution and reports, in this order: weekly, monthly, and custom period reports with calendar time, token usage, and list-price cost by model; then declared usage, actual cost and subscription division, and labels; then the maintenance of the price table, the dated price rows and the provider rows that `config add price` and `config add model-provider` write over the rows that ship with the program |
+| 3 | Integration with Claude Code: a plugin with hooks and skills, among them a skill that reads the price pages of a provider and proposes the rows for `config add price`, which the person confirms; the ledger never fetches and never parses a provider page |
+| 4 | Estimation, in this order: the recording of an estimate before the work starts, with work-item types, size classes, and AI mode; then the estimate-versus-actuals dataset and the estimator, which gives an estimate from the reference class of a work item |
 
 Each phase starts with the specification of the points that the `To be confirmed` sections of the specifications list
 for it, and with an implementation plan. A sentence of a specification without a phase applies from Phase 1; a
@@ -65,9 +62,8 @@ sentence for a later phase names it.
   their differences.
 
 The adapter writes every field of [event-schema.md](event-schema.md) that the native log gives — also the fields that
-only later phases use, such as token usage, request counts, price factors, model, and size counters — except session
-titles, which need consent (Phase 2), and the provider hint, of which no sample of a native log shows the source fact
-yet (the open point of [claude-code-adapter.md](claude-code-adapter.md)): native logs disappear after their retention
+only later phases use, such as token usage, request counts, price factors, model, and size counters — except the provider hint, of which no sample of a native log shows the source fact yet
+(the open point of [claude-code-adapter.md](claude-code-adapter.md)): native logs disappear after their retention
 period, and a field that ingestion does not write is lost.
 
 **Acceptance criteria.**
@@ -94,14 +90,13 @@ period, and a field that ingestion does not write is lost.
 9. Every command of [command-line.md](command-line.md) has report tests of its text and JSON output, in English and
    Italian, from fixture stores, among them manual entries, annotations, retractions, and frozen periods.
 10. On a laptop, with the invented native logs of the benchmark (30 days, 300,000 lines;
-    [architecture.md](architecture.md) › Tests), the first ingestion takes less than 1 minute, and a daily timesheet of
-    one month less than 5 seconds.
+    [architecture.md](architecture.md) › Tests), the first ingestion takes less than 1 minute, a daily timesheet of
+    one month less than 30 seconds, and the timesheet or the report of one day less than 5 seconds.
 
 **End of the phase.** Phase 2 starts its specification when the person has at least 20 declared days, the evidence
 that the open points of [metrics.md](metrics.md) on the upper bound of human time need.
 
 ## To be confirmed
 
-- An MCP server over the command line, and the ingestion of events that other programs write in the normalized form
-  of [event-schema.md](event-schema.md): whether Phase 3 takes them, and under which rules. To specify at the start of
-  Phase 3.
+- An MCP server over the command line, which opens no connection (Non-goals): whether Phase 3 takes it, and under
+  which conditions. To specify at the start of Phase 3.

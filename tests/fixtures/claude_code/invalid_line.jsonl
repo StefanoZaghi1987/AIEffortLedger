@@ -1,0 +1,2 @@
+{"type": "user", "uuid": "3f1c0000-0000-4000-8000-000000000002", "timestamp": "2026-03-01T09:20:00.000Z", "version": "2.1.0", "sessionId": "22222222-2222-5222-9222-222222222222", "gitBranch": "main", "entrypoint": "cli", "cwd": "D:\\Work\\Product", "origin": {"kind": "human"}, "message": {"role": "user", "content": "Explain the bramblewick fixture."}}
+this line is not JSON

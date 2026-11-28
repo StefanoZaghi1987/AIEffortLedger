@@ -1,0 +1,4 @@
+Source: claude-code-jsonl
+Folder: <root>/logs
+New events: 1
+Sessions held back: 0

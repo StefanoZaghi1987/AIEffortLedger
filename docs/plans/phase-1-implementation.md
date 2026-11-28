@@ -1,6 +1,7 @@
 # Phase 1 Implementation Plan — the daily timesheet of one person
 
-Status: draft, in review by the owner (2026-11-19). In the release commit of Task 66 this line becomes
+Status: executed up to 2026-11-27. The state of each task lives in `backlog/` and in git: the step boxes below
+record the intention as written, not its progress. In the release commit of Task 66 this line becomes
 `Status: completed`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development (recommended) or executing-plans to
@@ -21,7 +22,7 @@ terminal.
 **Tech Stack:** Python 3.11+ (standard library: `tomllib`, `zoneinfo`, `sqlite3`, `zlib`, `json`, `argparse`,
 `unittest`), `tzdata` at run time, `flit_core` to build, `uv` for the local virtual environment, GitHub Actions.
 
-**Spec:** `docs/spec/` (all eight files), `GLOSSARY.md`, `docs/adr/0001`–`0024`. The plan argues from them; when the
+**Spec:** `docs/spec/` (all eight files), `GLOSSARY.md`, `docs/adr/0001`–`0025`. The plan argues from them; when the
 plan and a spec disagree, the spec wins and the divergence is flagged (CLAUDE.md › Documents).
 
 ## Global Constraints
@@ -180,7 +181,8 @@ the benchmark note of Task 66.
 - Each task: write the failing tests, run them and see them fail, write the code, run the task's tests, then the
   full suite, then `python -I tests/style.py`, set the Backlog task to Done with the `backlog` command, then the
   checkpoint.
-- Checkpoint (ruled 2026-11-19): one local commit on `feat-phase-1-core` with the code, the tests, and the Backlog
+- Checkpoint (ruled 2026-11-19): one local commit on `feat-phase-1-implementation` (the branch of the execution
+  phase; `feat-phase-1-core` until Task 1) with the code, the tests, and the Backlog
   task file of the task; the message starts with `Task <n>:`. A push only when the owner asks.
 - Gate G6 (ruled 2026-11-19): after Task 3 and after the last task of each milestone, ask the owner whether to
   push the branch; on yes, push and check that the six jobs of the workflow pass before the next task.
@@ -619,18 +621,20 @@ def test_root_commit_is_kept(self):             # a second resolve reads no obje
 **Interfaces:**
 - Produces: `LANGUAGES = ("en", "it")`; `WARNING_CODES: frozenset[str]` (the 23 warning codes of the table);
   `CONFIGURATION_ERROR_CODES = frozenset({"identity_rule_conflict", "category_rule_conflict",
-  "project_name_conflict"})`; `STOP_CODES: frozenset[str]` (the codes of stop errors, D10, with `lock_unavailable`
-  of Task 7 and `scheduler_failed` of Task 8, which is also a warning code with the same texts; each later task
-  that adds a stop error adds its code and texts here); `message(code: str, values: Mapping[str, object], language:
-  str) -> str`; `label(key: str, language: str) -> str` (titles, states, column names).
+  "project_name_conflict"})`; `STOP_CODES: frozenset[str]` (the 17 codes of the stop-error table of
+  `command-line.md` › Exit codes, D10; `scheduler_failed` is also a warning code with the same texts; the set is
+  complete from this task, because the spec fixes it: no later task adds a code; a later task that finds a text
+  or placeholder wrong corrects it in place); `message(code: str, values: Mapping[str, object], language:
+  str) -> str`; `label(key: str, language: str) -> str` (titles, states, column names; the label keys of the
+  report tables are fixed by Task 46 and added there).
 
 - [ ] **Step 1: Write the failing tests**:
 
 ```python
 def test_every_code_has_both_texts(self):
 def test_both_texts_name_the_same_values(self):       # same {placeholders} in "en" and "it"
-def test_codes_are_the_table_of_the_spec(self):   # the 23 warning codes and the 3 configuration-error
-                                                  # codes, exactly
+def test_codes_are_the_table_of_the_spec(self):   # the 23 warning codes, the 3 configuration-error
+                                                  # codes, and the 17 stop codes, exactly
 def test_italian_states_use_glossary_terms(self):     # label("measured_day", "it") is the _Italian_ of
                                                        # "Measured day" in GLOSSARY.md
 def test_values_are_not_translated(self):             # message keeps a project name as given
@@ -650,7 +654,7 @@ machine; ADR 0017.
 
 **Files:**
 - Create: `src/ai_effort_ledger/configuration/__init__.py`, `values.py`, `machine.py`, `person.py`;
-  `tests/test_configuration.py`; Modify: `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+  `tests/test_configuration.py`
 
 **Interfaces:**
 - Produces: `parse_duration(text: str, clock: bool = False) -> int` (`"1h30min"` → 5400; with `clock`, also `H:MM`);
@@ -684,7 +688,8 @@ def test_dated_values_as_toml_values_or_strings(self):   # D5: both forms give t
 def test_defaults(self):          # preferred_remotes ["origin"], settle_time 14400, ReportParameters()
 def test_report_table_overrides_defaults(self):          # [report] idle_gap = "5min"
 def test_option_overrides_person(self):                  # layers "option", "person", "default"
-def test_later_phase_keys_are_accepted(self):            # [[label_key]], [[hourly_rate]], pseudonym
+def test_later_phase_keys_are_accepted(self):            # [[label_key]], [[cost_source]], [[price]], [[model_provider]], first_day_of_week
+def test_removed_phase_key_is_unreadable_with_line(self):   # [[hourly_rate]] -> ConfigurationUnreadable with line 5
 def test_unreadable_file_names_the_line(self):           # ConfigurationUnreadable with line 3
 def test_entry_line_is_its_header_line(self):            # [[day_start]] at lines 4 and 9 -> line 4, line 9
 def test_valid_toml_with_wrong_value_is_unreadable_with_line(self):   # zone "Europe/Nowhere"
@@ -711,7 +716,7 @@ def test_pattern_matches(self):   # "mcp__*" matches "mcp__a__b"; "Edit" does no
 
 **Files:**
 - Create: `src/ai_effort_ledger/configuration/writes.py`; Modify: `__init__.py`, `machine.py`,
-  `tests/test_configuration.py`, `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+  `tests/test_configuration.py`
 
 **Interfaces:**
 - Consumes: `StoreLock` (Task 7); `new_salt`, `salted_hash` (Task 6).
@@ -762,8 +767,7 @@ def test_category_constant_equals_events(self):   # the copied constant equals
 **Spec:** `ingestion.md` › Store; `architecture.md` › Concurrency; `event-schema.md` › Encoding.
 
 **Files:**
-- Create: `src/ai_effort_ledger/store/__init__.py`, `segments.py`, `files.py`; `tests/test_store.py`; Modify:
-  `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+- Create: `src/ai_effort_ledger/store/__init__.py`, `segments.py`, `files.py`; `tests/test_store.py`
 
 **Interfaces:**
 - Consumes: `encode_event`, `decode_line`, `format_instant` (Task 4).
@@ -857,18 +861,18 @@ records, whether the text starts with `[Request interrupted by user` (a count, n
 letter or `_`, is written as it is; every other key is written as `<key>`, because such a key is data, such as a
 file path.
 
-- [ ] **Step 1: Write the script** and run it on an invented folder made by hand: the output holds no text of the
+- [x] **Step 1: Write the script** and run it on an invented folder made by hand: the output holds no text of the
   invented records (a marker word in the input never appears in `prototype/out/`, also not when it is a key).
-- [ ] **Step 2: Gate G2.** Ask the owner to make the copy of the native logs and to run
+- [x] **Step 2: Gate G2.** Ask the owner to make the copy of the native logs and to run
   `python -I prototype/survey.py --snapshot <folder>`, or to allow the run.
-- [ ] **Step 3: Write the research note** with ratios only, and give the findings to the owner in a ruling panel
+- [x] **Step 3: Write the research note** with ratios only, and give the findings to the owner in a ruling panel
   for each `To be confirmed` item that a finding closes; before each panel, explain the item in plain English with
   a table of its cases × options. Each ruling becomes a sentence of the spec, and the item is
   deleted. An item that the survey cannot close comes to the owner with two choices: rule it now, or give it
   the trigger "with a real sample", without a phase.
-- [ ] **Step 4: Write a fixture** in `tests/fixtures/claude_code/` for each new record form that the rulings add, by
+- [x] **Step 4: Write a fixture** in `tests/fixtures/claude_code/` for each new record form that the rulings add, by
   hand, with invented text; Tasks 18–22 test it.
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ### Task 17: `adapters` — interface, folders of native logs, reading of files
 
@@ -1231,8 +1235,7 @@ def test_person_settings_follow_recorded_folder(self):  # native_logs X/projects
 `ingestion.md` › Store (every read ignores the copies that a purge blocks); D4.
 
 **Files:**
-- Create: `src/ai_effort_ledger/index.py`, `tests/test_index.py`; Modify: `src/ai_effort_ledger/language.py`,
-  `tests/test_language.py`
+- Create: `src/ai_effort_ledger/index.py`, `tests/test_index.py`
 
 **Interfaces:**
 - Consumes: `segment_names`, `read_lines`, `SegmentLine` (Task 14); `PurgeSet` (Task 15); `decode_line`,
@@ -1338,7 +1341,7 @@ instant values); ADR 0022.
 
 **Files:**
 - Create: `src/ai_effort_ledger/days.py`, `tests/test_days.py`; Modify: `tests/support.py` (calls
-  `days.use_tzdata_only()` at import), `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+  `days.use_tzdata_only()` at import)
 
 **Interfaces:**
 - Consumes: `TimeZoneEntry`, `DayStartEntry`, `PersonConfiguration` (Task 12).
@@ -1422,8 +1425,7 @@ def test_no_lost_events_at_first_ingestion(self):
 acceptance criteria 1 and 6.
 
 **Files:**
-- Create: `src/ai_effort_ledger/ingestion/run.py`; Modify: `__init__.py`, `tests/test_ingestion.py`,
-  `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+- Create: `src/ai_effort_ledger/ingestion/run.py`; Modify: `__init__.py`, `tests/test_ingestion.py`
 
 **Interfaces:**
 - Consumes: Tasks 7, 9, 10, 12–15, 17–26, 28.
@@ -1946,8 +1948,7 @@ Add to `tests/test_scenarios.py` the day-level assertions of the scenarios of Ta
 **Spec:** `metrics.md` › Declared values (proposal); `command-line.md` › Timesheet.
 
 **Files:**
-- Modify: `src/ai_effort_ledger/declared.py`, `tests/test_declared.py`, `tests/test_scenarios.py`,
-  `src/ai_effort_ledger/language.py`, `tests/test_language.py`
+- Modify: `src/ai_effort_ledger/declared.py`, `tests/test_declared.py`, `tests/test_scenarios.py`
 
 **Interfaces:**
 - Produces: `proposal(with_manual: Mapping[Bucket, int], granularity: int, total: int | None = None, given:
@@ -2638,7 +2639,80 @@ criterion 9.
   fails; the expected file changes only when a computation by hand from the fixture definition and the layout
   of Task 46 shows it wrong, or when a spec sentence supports it.
 - [ ] **Step 3: Run the full suite.**
-- [ ] **Step 4: Checkpoint.** Gate G6: ask the owner whether to push the branch.
+- [ ] **Step 4: Checkpoint.**
+
+### Task 67: `reports` — the parallel ratio of the agents
+
+**Spec:** `metrics.md` › Agent time; `command-line.md` › Reports, › JSON documents, › Frozen reports; `GLOSSARY.md` ›
+Parallel ratio; acceptance criterion 9.
+
+**Files:**
+- Create: `tests/fixtures/expected/en/` and `it/` files for `report day` and `timesheet` of the fixture store with
+  agents in parallel; Modify: `GLOSSARY.md`, `docs/spec/metrics.md`, `docs/spec/command-line.md`,
+  `docs/spec/architecture.md`, `src/ai_effort_ledger/reports/documents.py`, `src/ai_effort_ledger/reports/text.py`,
+  `src/ai_effort_ledger/reports/frozen.py`, `src/ai_effort_ledger/store/files.py`,
+  `src/ai_effort_ledger/language.py`, `tests/support.py`, `tests/test_reports.py`, `tests/test_reports_output.py`,
+  `tests/test_frozen_files.py`, `tests/test_language.py`, `tests/fixtures/text/`, `tests/fixtures/expected/`
+
+**Interfaces:**
+- Consumes: `BucketFigures` (Task 38); the documents and the text of Tasks 45, 46; the frozen reports and their
+  differences of Task 47; the fixture stores of Task 54.
+- Produces: `parallel_ratio` in the JSON document beside `agent_time`: the agent time of the holder divided by the
+  union of the agent time intervals behind it — of the person, of each project, and of each work item in `report
+  day`, and of the `context` in `timesheet <day>` — absent when the holder has no agent time; in the text, a column
+  beside the agent time and a figure line, with two decimals.
+
+- [ ] **Step 1: Write the term and the sentences**: the entry `Parallel ratio` of `GLOSSARY.md`; the last sentence of
+  `metrics.md` › Agent time names the figure; `command-line.md` › JSON documents holds the key and its form, › Reports
+  its column.
+- [ ] **Step 2: Write the failing tests**: the ratio of every holder in the documents and in the text; a fixture store
+  with agents in parallel, whose agent time is longer than the clock time in which agents work; a holder with no
+  agent time; a frozen report that holds no key.
+- [ ] **Step 3: Write the code**: the ratio where the document builds the measures beside it, from the two figures it
+  shows; the column, the figure line, and the label in two languages; the readers of the frozen reports give the key
+  its kind and never require it.
+- [ ] **Step 4: Correct every expected file by hand**, English and Italian: `1.00` beside each agent time, an empty
+  cell where the document holds no key.
+- [ ] **Step 5: Run and see it pass**, then the full suite.
+- [ ] **Step 6: Checkpoint.** Gate G6: ask the owner whether to push the branch.
+
+### Task 68: `metrics` — the activity classes of a holder on its human time with manual entries
+
+**Spec:** `metrics.md` › Activity classes, › Declared values; `command-line.md` › Reports.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/attribution/split.py`, `src/ai_effort_ledger/reports/documents.py` (the docstring of
+  `_measures`), `docs/spec/metrics.md`, `docs/spec/command-line.md`, `tests/test_attribution.py`,
+  `tests/test_reports_output.py`, `tests/test_reports.py`, `tests/test_scenarios.py`, and the eight expected files of
+  `report day` on the fixture stores `manual_entries` and `frozen_day`
+
+The task runs on a side stream from the tip of the fix round 1 of Task 59 and merges into `stream/cli` before Task 60.
+
+- [ ] **Step 1: Write the failing test**: for every holder — the person, each project, each work item, each bucket and
+  the unattributed time — on every fixture store, the class person only plus the class supervised equals its human
+  time with manual entries.
+- [ ] **Step 2: Write the sentences**: `metrics.md` › Activity classes and `command-line.md` › Reports say that the
+  activity classes of a project, of a work item and of the unattributed time come from its human time with manual
+  entries, as those of the person do.
+- [ ] **Step 3: Write the code**: the one argument, and the docstrings that state the rule.
+- [ ] **Step 4: Correct every expected file by hand**, English and Italian.
+- [ ] **Step 5: Run and see it pass**, then the full suite.
+
+### Task 69: `cli` — a purge by writer version holds no purge event
+
+**Spec:** `command-line.md` › Purge; ADR 0015.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/index.py`, `src/ai_effort_ledger/cli/entry_actions.py`, `docs/spec/command-line.md`,
+  `tests/test_index.py`, `tests/test_cli.py`
+
+The task runs on a side stream from the tip of the fix round 1 of Task 59 and merges into `stream/cli` before Task 60.
+
+- [ ] **Step 1: Write the failing tests**: in the index and through the command, a selection by writer version holds
+  no purge event and leaves one alone; a `--key` that names a purge still stops the command.
+- [ ] **Step 2: Write the sentence** of `command-line.md` › Purge.
+- [ ] **Step 3: Write the code**: the selection, and the docstrings that state the rule.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
 
 ## Milestone 9 — Suites across modules, benchmark, end of the phase, first release
 
@@ -2721,20 +2795,121 @@ def test_repository_identity_at_first_ingestion(self): # the store differs only 
 **Interfaces:**
 - Consumes: `write_native_logs`, `main` (Tasks 30, 42); `cli.main` (Task 49), `Context` (Task 48);
   `write_machine_configuration`, `create_person_configuration` (Task 13).
-- Produces: both times run through `cli.main(argv, context)`: the first `ingest`, and `report timesheet` of one month.
-  The script builds the `Context` itself, never the one of the running process: a temporary home, an `environ` that
-  names only temporary folders and `AI_EFFORT_LEDGER_DEVELOPMENT=1`, a fake `run`, a fixed `time_zone`, and
-  `ClaudeCodeAdapter(managed_file=<temporary file>)` as its adapter. Before the timed `ingest` it writes the machine
-  configuration and the person configuration with the functions of Task 13; as in Task 30, it imports nothing from
-  `tests/support.py`.
+- Produces: four times run through `cli.main(argv, context)`: the first `ingest`, `report timesheet` of one
+  month, and `timesheet` and `report day` of one day. The script builds the `Context` itself, never the one of the running process: a
+  temporary home, an `environ` that names only temporary folders and `AI_EFFORT_LEDGER_DEVELOPMENT=1`, a fake `run`,
+  a fixed `time_zone`, and `ClaudeCodeAdapter(managed_file=<temporary file>)` as its adapter. Before the timed
+  `ingest` it writes the machine configuration and the person configuration with the functions of Task 13; as in
+  Task 30, it imports nothing from `tests/support.py`.
 
-- [ ] **Step 1: Change the script** and run it with `--days 1 --sessions 2 --lines 50`: it completes and prints two
+- [ ] **Step 1: Change the script** and run it with `--days 1 --sessions 2 --lines 50`: it completes and prints the
   times.
 - [ ] **Step 2: Run it with the defaults** on the development machine and give the seconds to the owner; the targets
-  are less than 60 s for the first ingestion and less than 5 s for the timesheet.
+  are less than 60 s for the first ingestion, less than 30 s for the daily timesheet of one month, and less than 5 s
+  for the timesheet of one day (acceptance criterion 10).
 - [ ] **Step 3: If a target fails**, profile with `cProfile`, fix, and run again; a second failure stops the
   task for the owner.
 - [ ] **Step 4: Checkpoint.**
+
+### Task 70: `tests` — the static check reads the table of Modules
+
+**Spec:** `architecture.md` › Modules, › Tests (the static check); CLAUDE.md › Core.
+
+**Files:**
+- Modify: `tests/style.py`, `tests/test_style.py`, `docs/spec/architecture.md`
+
+The task runs on the feature branch after the merge of Milestone 8 and the merge of `stream/perf`.
+
+- [ ] **Step 1: Write the failing tests** of the check: an import that the row of its module does not list; a
+  dependency of a row that no file of its module imports; a dependency that stands below its module in the build
+  order.
+- [ ] **Step 2: Write the check** and the sentence of `architecture.md` › Tests that describes it.
+- [ ] **Step 3: Run the check on the tree**: each row of › Modules names exactly the modules that its files import;
+  the items of › To be confirmed on those rows close by deletion. An import that makes a module import a module that
+  depends on it is a finding, not a row to correct.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+
+### Task 71: `platform` — `schedule show` reads the entry of launchd and of systemd
+
+**Spec:** `command-line.md` › Commands (`schedule show`), › Setup; `ingestion.md` › Frequency.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/platform/scheduler.py`, `src/ai_effort_ledger/setup.py`,
+  `src/ai_effort_ledger/cli/setup_actions.py`, `docs/spec/command-line.md`, `tests/test_platform.py`,
+  `tests/test_setup.py`, `tests/test_cli.py`, `tests/test_reports_output.py`
+
+The task runs on the feature branch after the merge of Milestone 8 and the merge of `stream/perf`.
+
+- [ ] **Step 1: Write the failing tests**: on launchd and on systemd, the definition file that `schedule create`
+  writes gives the entry (name, command, time); no file, or a file that cannot be read, gives no entry; cron gives
+  no entry; `schedule show` and `setup` show the entry after a create on every system.
+- [ ] **Step 2: Write the sentence** that says what `schedule show` reads on each scheduler.
+- [ ] **Step 3: Write the code**: the two readers, and the signature of `show_entry` that takes what they need.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+
+### Task 72: `configuration`, `days`, `cli` — the readers of a day, of an instant and of an hour read the forms of
+the specification alone
+
+**Spec:** `command-line.md` › Form, › Exit codes; `configuration.md` › Format, › Writes.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/days.py`, `src/ai_effort_ledger/cli/arguments.py`,
+  `src/ai_effort_ledger/configuration/person.py`, `src/ai_effort_ledger/configuration/writes.py`, and the module
+  that holds the forms (the lowest that the three may import by `architecture.md` › Modules);
+  `docs/spec/command-line.md`, `tests/test_days.py`, `tests/test_configuration.py`, `tests/test_cli.py`
+
+The task runs on the feature branch after the merge of Milestone 8 and the merge of `stream/perf`.
+
+- [ ] **Step 1: Write the failing tests**: for each reader, the forms it accepts and the texts it refuses — a
+  compact date, a week date, a space for `T`, seconds in a local instant, a day where an instant is read, an hour
+  that is not `HH:MM`; the exit code for wrong use on the command line, the line of the entry in the configuration
+  file.
+- [ ] **Step 2: Write the readers**: one definition of each form; no reader of a person's text calls
+  `fromisoformat`.
+- [ ] **Step 3: Close the item** of `command-line.md` › To be confirmed by deletion.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+
+### Task 73: `reports`, `store` — the outputs that name a machine show its label
+
+**Spec:** `command-line.md` › Commands (`entries`, `frozen list`, `frozen remove`), › Exit codes, › JSON documents;
+  `ingestion.md` › Store; `GLOSSARY.md` (Machine, Machine label).
+
+**Files:**
+- Modify: `src/ai_effort_ledger/reports/frozen.py`, `src/ai_effort_ledger/reports/text.py`,
+  `src/ai_effort_ledger/reports/documents.py`, `src/ai_effort_ledger/store/files.py`,
+  `src/ai_effort_ledger/language.py`, `docs/spec/command-line.md`, `docs/spec/ingestion.md`,
+  `tests/test_reports_output.py`, `tests/test_reports.py`, `tests/test_cli.py`, and the expected files of `frozen
+  list` and `entries` on a fixture store that holds a label
+
+The task runs on the feature branch after the merge of Milestone 8 and the merge of `stream/perf`.
+
+- [ ] **Step 1: Write the failing tests**: with a label in the store metadata of a machine, the text shows the label
+  and the document keeps the identifier and adds `machine_label`; without a label, both show the identifier.
+- [ ] **Step 2: Write the sentences** of `command-line.md` › JSON documents; the item of `ingestion.md` › To be
+  confirmed closes by deletion.
+- [ ] **Step 3: Write the code**, and correct every expected file by hand, English and Italian.
+- [ ] **Step 4: Run and see it pass**, then the full suite.
+
+### Task 74: `cli`, `language` — a wrong use names its cause
+
+**Spec:** `command-line.md` › Exit codes, › Output, › Commands; `GLOSSARY.md`.
+
+**Files:**
+- Modify: `src/ai_effort_ledger/cli/arguments.py`, `src/ai_effort_ledger/cli/entry_actions.py`,
+  `src/ai_effort_ledger/cli/store_actions.py`, `src/ai_effort_ledger/language.py`, `docs/spec/command-line.md`,
+  `GLOSSARY.md`, `tests/test_cli.py`, `tests/test_language.py`, and the expected files that show the label of an
+  event identifier
+
+The task runs on `stream/cli` after Task 60.
+
+- [ ] **Step 1: Write the failing tests**: each situation of a wrong use through `cli.main`, in English and in
+  Italian — no command, an argument the command needs, an argument the command does not know, arguments that do not
+  go together, and a name that two entries of the person configuration give — with its code, its values, and its
+  line; a list value written as its items in the text.
+- [ ] **Step 2: Write the entry** of the glossary and the rows of the table of the stop errors.
+- [ ] **Step 3: Write the code**: one code for each cause, its values derived from the words of the command line;
+  then the texts that name an event identifier, with the expected files they move, corrected by hand.
+- [ ] **Step 4: Run and see it pass** through Python 3.11, 3.12 and 3.13, then the full suite.
 
 ### Task 65: End of the phase
 
@@ -2772,8 +2947,8 @@ It runs on `master` after the merge.
 - [ ] **Step 1: Run the tests**: the full suite, the static check, and the workflow on the merge commit (the
   owner asks for the push of `master`).
 - [ ] **Step 2: Gate G5.** Ask the owner to run `python -I tests/benchmark.py` on a laptop; write
-  `docs/research/benchmark-<yyyy>-<mm>.md` with the seconds and the processor; the targets are less than 60 s for the
-  first ingestion and less than 5 s for the timesheet. A failed target stops the release (Steps 3–6); the owner
+  `docs/research/benchmark-<yyyy>-<mm>.md` with the seconds and the processor; the targets are those of acceptance
+  criterion 10. A failed target stops the release (Steps 3–6); the owner
   decides between a fix on a branch and a ruling that accepts the seconds of the note.
 - [ ] **Step 3: Set `version = "0.1.0"`** in `pyproject.toml`, set the status line of this plan to
   `Status: completed`, and commit them with the note of Step 2.
@@ -2799,5 +2974,5 @@ unlisted.
 | 6. Purge with a corrected version gives corrected events; without one keeps keys out | 15, 29, 61 |
 | 7. No text of the fixtures in the store | 18–20, 63 |
 | 8. Tests pass on Windows, Linux, macOS with Python 3.11 and the newest release | 3, 65 (gate G6 at each milestone) |
-| 9. Report tests of every command, text and JSON, English and Italian | 54–60 |
-| 10. Benchmark: first ingestion < 1 min, timesheet of a month < 5 s | 30, 42, 64, 66 |
+| 9. Report tests of every command, text and JSON, English and Italian | 54–60, 67 |
+| 10. Benchmark: first ingestion < 1 min, timesheet of a month < 30 s, timesheet of one day < 5 s | 30, 42, 64, 66 |

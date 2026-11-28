@@ -1,0 +1,13 @@
+uso: ai-effort-ledger retract [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                              IDENTIFICATIVO DELL'EVENTO
+
+ritirare un evento per l'identificativo dell'evento
+
+argomenti:
+  IDENTIFICATIVO DELL'EVENTO
+
+opzioni:
+  --store CARTELLA            usare un'altra cartella dell'archivio solo per questo comando
+  --json                      scrivere il risultato come un documento JSON
+  --language {en,it}          la lingua dell'output
+  -h, --help                  mostra questo aiuto ed esce

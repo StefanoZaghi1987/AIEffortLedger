@@ -1,0 +1,23 @@
+usage: ai-effort-ledger report day [--store FOLDER] [--json] [--language {en,it}] [-h]
+                                   [--freeze] [--note TEXT] [--idle-gap DURATION]
+                                   [--minimum-attention DURATION] [--stale-limit DURATION]
+                                   [--headless-prompts {yes,no}]
+                                   [--timesheet-granularity DURATION] DAY
+
+the human time, the agent time, and the blocked time of a day
+
+arguments:
+  DAY
+
+options:
+  --store FOLDER                    use another store folder for this command only
+  --json                            write the result as one JSON document
+  --language {en,it}                the language of the output
+  -h, --help                        show this help message and exit
+  --freeze                          keep the report also as a frozen report
+  --note TEXT                       a note for the event or for the report
+  --idle-gap DURATION               the idle gap of the figures, such as 10min
+  --minimum-attention DURATION      the minimum attention time of the figures
+  --stale-limit DURATION            the stale limit of the figures
+  --headless-prompts {yes,no}       whether the figures count headless prompts as human signals
+  --timesheet-granularity DURATION  the granularity of the proposal of the timesheet

@@ -1,0 +1,30 @@
+uso: ai-effort-ledger <comando> [<sottocomando>] [opzioni]
+
+Misurare il tempo persona e il tempo agente di una persona dai log nativi degli strumenti
+agentici.
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce
+
+comandi:
+  <comando>
+    setup             preparare il ledger su una macchina
+    schedule          mostrare, creare o rimuovere l'acquisizione pianificata
+    ingest            eseguire un'acquisizione
+    machine           l'etichetta della macchina nei metadati dell'archivio
+    config            mostrare le configurazioni, o aggiungere una voce alla configurazione
+                      personale
+    sessions          elencare le sessioni di un giorno locale
+    annotate          scrivere un'annotazione
+    entry             scrivere una registrazione manuale
+    timesheet         mostrare il registro attività di un giorno, o confermarlo o ritirarlo
+    entries           elencare gli eventi dichiarati di un giorno locale
+    retract           ritirare un evento per l'identificativo dell'evento
+    purge             rimuovere eventi dall'archivio
+    report            i report del ledger
+    frozen            i report congelati
+    index             l'indice locale dell'archivio
+    version           mostrare la versione del ledger e di tzdata

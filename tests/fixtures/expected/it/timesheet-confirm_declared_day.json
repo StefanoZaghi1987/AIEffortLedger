@@ -1,0 +1,1 @@
+{"event_uid": "00000000-0000-4000-8000-000000000001", "entries": [{"project": {"id": "alpha", "name": "Alpha"}, "work_item": null, "measured": 60, "with_manual_entries": 60, "declared": 900, "inferred_human_share": 0.0, "inferred_agent_share": 0.0, "proposed": 900}], "command": "timesheet confirm", "warnings": [], "configuration_errors": []}

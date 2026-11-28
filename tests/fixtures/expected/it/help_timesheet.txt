@@ -1,0 +1,27 @@
+uso: ai-effort-ledger timesheet [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                                [--total DURATA] [--set VALORE] [--note TESTO]
+                                [--idle-gap DURATA] [--minimum-attention DURATA]
+                                [--stale-limit DURATA] [--headless-prompts {yes,no}]
+                                [--timesheet-granularity DURATA] [SOTTOCOMANDO] [GIORNO]
+
+mostrare il registro attività di un giorno, o confermarlo o ritirarlo
+
+argomenti:
+  SOTTOCOMANDO                    confermare la proposta del giorno, o ritirare l'ultima
+                                  conferma
+  GIORNO
+
+opzioni:
+  --store CARTELLA                usare un'altra cartella dell'archivio solo per questo comando
+  --json                          scrivere il risultato come un documento JSON
+  --language {en,it}              la lingua dell'output
+  -h, --help                      mostra questo aiuto ed esce
+  --total DURATA                  il tempo persona totale del giorno
+  --set VALORE                    il valore di una voce del registro attività, come
+                                  progetto=valore
+  --note TESTO                    una nota per l'evento o per il report
+  --idle-gap DURATA               la soglia di inattività delle figure, per esempio 10min
+  --minimum-attention DURATA      il tempo di attenzione minima delle figure
+  --stale-limit DURATA            il limite di stallo delle figure
+  --headless-prompts {yes,no}     se le figure contano i prompt headless come segnali umani
+  --timesheet-granularity DURATA  la granularità della proposta del registro attività

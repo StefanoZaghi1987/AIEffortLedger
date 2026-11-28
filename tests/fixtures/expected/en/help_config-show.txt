@@ -1,0 +1,9 @@
+usage: ai-effort-ledger config show [--store FOLDER] [--json] [--language {en,it}] [-h]
+
+show the parameters and the dated facts with the layer that gives each one
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

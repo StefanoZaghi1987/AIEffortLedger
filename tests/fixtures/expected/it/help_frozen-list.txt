@@ -1,0 +1,9 @@
+uso: ai-effort-ledger frozen list [--store CARTELLA] [--json] [--language {en,it}] [-h]
+
+elencare i report congelati
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce

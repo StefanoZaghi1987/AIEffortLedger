@@ -1,0 +1,16 @@
+2026-11-23  Declared day
+
+Person
+Human time  Agent time  Parallel ratio  Blocked time  Person only  Supervised  Unattended  Blocked   Idle
+0:01              0:20            1.00          0:00         0:01        0:00        0:20     0:00  23:39
+
+Projects
+Project  Human time  Agent time  Parallel ratio  Blocked time  Person only  Supervised  Unattended  Blocked  Idle  Inferred human share  Inferred agent share
+Alpha          0:01        0:20            1.00          0:00         0:01        0:00        0:20     0:00                        0.00                  0.00
+
+Work items
+Work item  Human time  Agent time  Parallel ratio  Blocked time  Person only  Supervised  Unattended  Blocked  Idle  Inferred human share  Inferred agent share
+
+The activity classes of the projects and of the work items do not always add up to those of the person.
+
+Unknown invocation share  0.00

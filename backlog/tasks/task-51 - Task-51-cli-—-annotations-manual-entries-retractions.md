@@ -1,9 +1,10 @@
 ---
 id: TASK-51
 title: 'Task 51: cli — annotations, manual entries, retractions'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-22 11:38'
+updated_date: '2026-11-27 12:06'
 labels: []
 milestone: m-8
 dependencies: []
@@ -24,5 +25,11 @@ Execute Task 51 of docs/plans/phase-1-implementation.md exactly as written: its 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every step checkbox of the plan task is checked and its named tests pass
-- [ ] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
+- [x] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+cli — annotations, manual entries, and retractions (entry_actions.py), built on stream/cli. Checkpoint commit 711f4bd (suite green, style exit 0); review approved first round. Evidence: task-51-report.md.
+<!-- SECTION:FINAL_SUMMARY:END -->

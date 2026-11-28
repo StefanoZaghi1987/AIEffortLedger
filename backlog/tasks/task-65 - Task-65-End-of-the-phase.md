@@ -1,7 +1,7 @@
 ---
 id: TASK-65
 title: 'Task 65: End of the phase'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-22 11:40'
 labels: []
@@ -23,7 +23,7 @@ Execute Task 65 of docs/plans/phase-1-implementation.md exactly as written: the 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every acceptance criterion is checked against the table with a passing test or the dated benchmark note
-- [ ] #2 Every To-be-confirmed item marked for Phase 1 is closed; README and CLAUDE.md updated
+- [x] #1 Every acceptance criterion is checked against the table with a passing test or the dated benchmark note
+- [x] #2 Every To-be-confirmed item marked for Phase 1 is closed; README and CLAUDE.md updated
 - [ ] #3 Gate G6 asked after the workflow run
 <!-- AC:END -->

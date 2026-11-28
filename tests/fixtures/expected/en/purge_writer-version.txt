@@ -1,0 +1,6 @@
+Keys
+{"native_id": "7f1c0000-0000-4000-8000-000000000001", "source": "claude-code-jsonl"}
+{"native_id": "response-2026-11-20T09:00", "source": "claude-code-jsonl"}
+{"event_uid": "10000000-0000-4000-8000-000000000001", "source": "ledger"}
+{"event_uid": "10000000-0000-4000-8000-000000000002", "source": "ledger"}
+Written: yes

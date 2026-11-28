@@ -1,0 +1,5 @@
+identificativo dell'evento: 00000000-0000-4000-8000-000000000001
+
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta  proposto
+Beta                           0:00                       0:40        0:45                 0.00                  0.00      0:45
+Alpha                          0:01                       0:00        0:00                 0.00                  0.00

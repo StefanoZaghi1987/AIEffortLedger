@@ -1,0 +1,41 @@
+2026-11-20  Measured day
+Project  Work item  Measured  With manual entries  Declared  Inferred human share  Inferred agent share
+Alpha                   0:01                 0:01                            0.00                  0.00
+Total                   0:01                 0:01
+
+Unknown invocation share  0.00
+
+Human time at idle gaps
+Idle gap  Human time
+0:05            0:01
+0:10            0:01
+0:15            0:01
+
+2026-11-21  Measured day
+Project  Work item  Measured  With manual entries  Declared  Inferred human share  Inferred agent share
+Beta                    0:01                 0:01                            0.00                  0.00
+Total                   0:01                 0:01
+
+Unknown invocation share  0.00
+
+Human time at idle gaps
+Idle gap  Human time
+0:05            0:01
+0:10            0:01
+0:15            0:01
+
+Differences
+Day         Project  Work item  Figure                Frozen   Now
+2026-11-21  beta                measured                0:01
+2026-11-21  beta                with_manual_entries     0:01
+2026-11-21  beta                inferred_human_share    0.00
+2026-11-21  beta                inferred_agent_share    0.00
+2026-11-21  Beta                measured                      0:01
+2026-11-21  Beta                with_manual_entries           0:01
+2026-11-21  Beta                inferred_human_share          0.00
+2026-11-21  Beta                inferred_agent_share          0.00
+
+Changed
+Path                          Frozen  Now
+identity_rules[1].project             beta
+identity_rules[1].repository          example.com/acme/beta

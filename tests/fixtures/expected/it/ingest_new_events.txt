@@ -1,0 +1,4 @@
+sorgente: claude-code-jsonl
+cartella: <root>/logs
+eventi nuovi: 1
+sessioni trattenute: 0

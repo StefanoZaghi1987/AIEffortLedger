@@ -1,0 +1,44 @@
+report congelato  10000000-0000-4000-8000-000000000001  report timesheet
+
+2026-11-20  giorno misurato
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+Alpha                          0:01                       0:01                             0.00                  0.00
+totale                         0:01                       0:01
+
+quota di avvio non nota  0.00
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           0:01
+0:10                           0:01
+0:15                           0:01
+
+2026-11-21  giorno misurato
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+beta                           0:01                       0:01                             0.00                  0.00
+totale                         0:01                       0:01
+
+quota di avvio non nota  0.00
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           0:01
+0:10                           0:01
+0:15                           0:01
+
+differenze
+giorno      progetto  unità di lavoro  figura                congelato  adesso
+2026-11-21  beta                       measured                   0:01
+2026-11-21  beta                       with_manual_entries        0:01
+2026-11-21  beta                       inferred_human_share       0.00
+2026-11-21  beta                       inferred_agent_share       0.00
+2026-11-21  Beta                       measured                           0:01
+2026-11-21  Beta                       with_manual_entries                0:01
+2026-11-21  Beta                       inferred_human_share               0.00
+2026-11-21  Beta                       inferred_agent_share               0.00
+
+modifiche
+percorso                      congelato  adesso
+parameters.language           en         it
+identity_rules[1].project                beta
+identity_rules[1].repository             example.com/acme/beta

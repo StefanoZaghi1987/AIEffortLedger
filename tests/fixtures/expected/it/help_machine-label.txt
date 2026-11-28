@@ -1,0 +1,12 @@
+uso: ai-effort-ledger machine label [--store CARTELLA] [--json] [--language {en,it}] [-h] TESTO
+
+cambiare l'etichetta della macchina
+
+argomenti:
+  TESTO
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce

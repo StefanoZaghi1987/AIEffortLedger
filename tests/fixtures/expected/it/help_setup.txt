@@ -1,0 +1,17 @@
+uso: ai-effort-ledger setup [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                            [--label TESTO] [--schedule {yes,no}] [--native-logs TOOL=CARTELLA]
+                            [--time ORA]
+
+preparare il ledger su una macchina
+
+opzioni:
+  --store CARTELLA             usare un'altra cartella dell'archivio solo per questo comando
+  --json                       scrivere il risultato come un documento JSON
+  --language {en,it}           la lingua dell'output
+  -h, --help                   mostra questo aiuto ed esce
+  --label TESTO                l'etichetta della macchina
+  --schedule {yes,no}          yes: creare l'acquisizione pianificata senza chiedere; no: non
+                               crearla mai
+  --native-logs TOOL=CARTELLA  una cartella di log nativi di uno strumento agentico, come
+                               tool=cartella
+  --time ORA                   l'ora del giorno dell'acquisizione pianificata

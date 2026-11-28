@@ -1,0 +1,19 @@
+usage: ai-effort-ledger purge [--store FOLDER] [--json] [--language {en,it}] [-h] (--key KEY |
+                              --writer-version-below VERSION) [--source SOURCE]
+                              --reason {content,correction,forget} [--corrected-version VERSION]
+                              [--yes]
+
+remove events from the store
+
+options:
+  --store FOLDER                        use another store folder for this command only
+  --json                                write the result as one JSON document
+  --language {en,it}                    the language of the output
+  -h, --help                            show this help message and exit
+  --key KEY                             an event key to remove, as its JSON object or its event
+                                        identifier
+  --writer-version-below VERSION        remove what a version below this one wrote
+  --source SOURCE                       the source of the keys, for a removal by writer version
+  --reason {content,correction,forget}  the reason of the removal of the events
+  --corrected-version VERSION           the writer version from which the copies come back
+  --yes                                 write without asking the person

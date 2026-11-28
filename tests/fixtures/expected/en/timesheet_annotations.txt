@@ -1,0 +1,17 @@
+2026-11-20  Measured day
+Project  Work item  Measured  With manual entries  Declared  Inferred human share  Inferred agent share  Proposed
+Alpha    Story One      0:01                 0:01                            0.00                  0.00      0:15
+Beta     Story Two      0:01                 0:01                            0.00                  0.00      0:15
+Total                   0:02                 0:02
+
+Agent time  0:20
+Parallel ratio  1.00
+Presence span  2:00
+
+Unknown invocation share  0.00
+
+Human time at idle gaps
+Idle gap  Human time
+0:05            0:02
+0:10            0:02
+0:15            0:02

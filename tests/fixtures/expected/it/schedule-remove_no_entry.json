@@ -1,0 +1,1 @@
+{"schedule": null, "command": "schedule remove", "warnings": [{"code": "no_schedule_entry", "values": {}, "message": "Il ledger non ha nessuna acquisizione pianificata da rimuovere."}], "configuration_errors": []}

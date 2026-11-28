@@ -1,0 +1,22 @@
+uso: ai-effort-ledger report timesheet [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                                       --from GIORNO --to GIORNO [--freeze] [--note TESTO]
+                                       [--idle-gap DURATA] [--minimum-attention DURATA]
+                                       [--stale-limit DURATA] [--headless-prompts {yes,no}]
+                                       [--timesheet-granularity DURATA]
+
+il registro attività giornaliero di un periodo
+
+opzioni:
+  --store CARTELLA                usare un'altra cartella dell'archivio solo per questo comando
+  --json                          scrivere il risultato come un documento JSON
+  --language {en,it}              la lingua dell'output
+  -h, --help                      mostra questo aiuto ed esce
+  --from GIORNO                   il primo giorno del periodo
+  --to GIORNO                     l'ultimo giorno
+  --freeze                        conservare il report anche come report congelato
+  --note TESTO                    una nota per l'evento o per il report
+  --idle-gap DURATA               la soglia di inattività delle figure, per esempio 10min
+  --minimum-attention DURATA      il tempo di attenzione minima delle figure
+  --stale-limit DURATA            il limite di stallo delle figure
+  --headless-prompts {yes,no}     se le figure contano i prompt headless come segnali umani
+  --timesheet-granularity DURATA  la granularità della proposta del registro attività

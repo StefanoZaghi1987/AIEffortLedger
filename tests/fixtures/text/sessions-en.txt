@@ -1,0 +1,4 @@
+2026-06-15  Sessions
+Session    Tool          Start                     End                       Folder                 Branch  Project  Work item    Human time  Agent time
+session-1  example_tool  2026-06-15T09:00:00.000Z  2026-06-15T10:00:00.000Z  D:\Work\Product\alpha  main    Alpha    Feature 142        1:00        0:20
+session-2  example_tool  2026-06-15T11:00:00.000Z  2026-06-15T11:30:00.000Z  D:\Work\Product\alpha  main

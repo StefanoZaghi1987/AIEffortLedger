@@ -1,0 +1,13 @@
+usage: ai-effort-ledger retract [--store FOLDER] [--json] [--language {en,it}] [-h]
+                                EVENT IDENTIFIER
+
+retract an event by its event identifier
+
+arguments:
+  EVENT IDENTIFIER
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

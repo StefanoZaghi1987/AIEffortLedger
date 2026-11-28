@@ -1,0 +1,32 @@
+uso: ai-effort-ledger config add [--store CARTELLA] [--json] [--language {en,it}] [-h]
+                                 [--zone FUSO] [--from ISTANTE|GIORNO] [--hour ORA]
+                                 [--id IDENTIFICATIVO] [--name NOME] [--project PROGETTO]
+                                 [--work-item UNITÀ DI LAVORO] [--repository REPOSITORY]
+                                 [--folder CARTELLA] [--branch RAMO] [--to GIORNO] [--tool TOOL]
+                                 [--category CATEGORIA DI TOOL] VOCE
+
+aggiungere una voce alla configurazione personale
+
+argomenti:
+  VOCE
+
+opzioni:
+  --store CARTELLA              usare un'altra cartella dell'archivio solo per questo comando
+  --json                        scrivere il risultato come un documento JSON
+  --language {en,it}            la lingua dell'output
+  -h, --help                    mostra questo aiuto ed esce
+  --zone FUSO                   il nome IANA del fuso orario
+  --from ISTANTE|GIORNO         l'istante o il giorno da cui la voce vale
+  --hour ORA                    l'ora di inizio giornata: l'ora locale a cui ha inizio un giorno
+                                locale
+  --id IDENTIFICATIVO           l'identificativo della voce, o dell'unità di lavoro
+  --name NOME                   il nome che i report mostrano
+  --project PROGETTO            il progetto, come identificativo o come nome
+  --work-item UNITÀ DI LAVORO   l'unità di lavoro, come identificativo o come nome
+  --repository REPOSITORY       il repository cui la regola corrisponde, come URL normalizzato
+  --folder CARTELLA             la cartella cui la regola corrisponde
+  --branch RAMO                 il ramo cui la regola corrisponde
+  --to GIORNO                   l'ultimo giorno
+  --tool TOOL                   lo strumento agentico, o il nome di tool di una regola di
+                                categoria
+  --category CATEGORIA DI TOOL  la categoria di tool della regola

@@ -1,0 +1,2 @@
+2026-11-19  sessioni
+sessione  tool  inizio  fine  cartella  ramo  progetto  unità di lavoro  tempo persona  tempo agente

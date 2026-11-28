@@ -1,0 +1,1 @@
+{"schedule": null, "command": "schedule remove", "warnings": [{"code": "no_schedule_entry", "values": {}, "message": "The ledger has no scheduled ingestion to remove."}], "configuration_errors": []}

@@ -1,0 +1,9 @@
+uso: ai-effort-ledger ingest [--store CARTELLA] [--json] [--language {en,it}] [-h]
+
+eseguire un'acquisizione
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce

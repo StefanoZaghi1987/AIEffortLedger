@@ -1,0 +1,47 @@
+2026-11-20  giorno misurato
+
+persona
+tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività
+1:02                   0:20                      1.00            0:00          1:02            0:00                0:20      0:00       22:38
+
+progetti
+progetto  tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività  quota umana dedotta  quota agente dedotta
+Alpha              1:01          0:20                      1.00            0:00          1:01            0:00                0:20      0:00                             0.00                  0.00
+Beta               0:01          0:00                                      0:00          0:01            0:00                0:00      0:00                             0.00                  0.00
+
+unità di lavoro
+unità di lavoro  tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività  quota umana dedotta  quota agente dedotta
+Story One                 1:01          0:20                      1.00            0:00          1:01            0:00                0:20      0:00                             0.00                  0.00
+Story Two                 0:01          0:00                                      0:00          0:01            0:00                0:00      0:00                             0.00                  0.00
+
+Le classi di attività dei progetti e delle unità di lavoro non sempre si sommano a quelle della persona.
+
+quota di avvio non nota  0.00
+
+tempo persona alle soglie di inattività
+soglia di inattività  tempo persona
+0:05                           0:02
+0:10                           0:02
+0:15                           0:02
+
+differenze
+giorno      progetto  unità di lavoro  figura                        congelato  adesso
+2026-11-20                             human_time_at_idle_gaps.300        0:04    0:02
+2026-11-20                             human_time_at_idle_gaps.600        0:04    0:02
+2026-11-20                             human_time_at_idle_gaps.900        0:04    0:02
+2026-11-20                             human_time                         0:04    1:02
+2026-11-20                             activity_classes.person_only       0:04    1:02
+2026-11-20                             activity_classes.idle             23:36   22:38
+2026-11-20  Alpha                      human_time                         0:02    1:01
+2026-11-20  Alpha                      activity_classes.person_only       0:02    1:01
+2026-11-20  Beta                       human_time                         0:02    0:01
+2026-11-20  Beta                       activity_classes.person_only       0:02    0:01
+2026-11-20            Story One        human_time                         0:02    1:01
+2026-11-20            Story One        activity_classes.person_only       0:02    1:01
+2026-11-20            Story Two        human_time                         0:02    0:01
+2026-11-20            Story Two        activity_classes.person_only       0:02    0:01
+
+modifiche
+percorso                      congelato  adesso
+parameters.minimum_attention  0:02       0:01
+parameters.language           en         it

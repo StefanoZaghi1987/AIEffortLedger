@@ -1,0 +1,4 @@
+Scheduled ingestion:
+Name: ai-effort-ledger-ingest
+Command: <root>/tools/ai-effort-ledger ingest --store <root>/store
+Hour: 12:00

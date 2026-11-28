@@ -1,0 +1,12 @@
+uso: ai-effort-ledger frozen remove [--store CARTELLA] [--json] [--language {en,it}] [-h] ID
+
+rimuovere un report congelato
+
+argomenti:
+  ID
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce

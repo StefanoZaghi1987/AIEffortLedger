@@ -73,11 +73,6 @@ _Avoid_: chat, conversation, transcript (the transcript is a source, not the ses
 The timestamp of the last record that a forked session shares with its original.
 _Italian_: istante del fork
 
-**Session title**:
-The title that an agent tool gives to a session; it enters the store only when the person configuration allows titles
-(Phase 2).
-_Italian_: titolo della sessione
-
 **Invocation**:
 How the prompts of a session arrive: interactive (a person types them), headless (a script or a command line gives
 them), scheduled (a schedule starts the session), or orchestrated (another program or session drives it); a resumed
@@ -234,6 +229,11 @@ _Italian_: classe di attività
 Time in which human time and agent time overlap.
 _Italian_: tempo supervisionato
 
+**Parallel ratio**:
+The agent time of the person, of a project, or of a work item, divided by the union of the agent time intervals
+behind it; 1 when no two agents work at the same instant.
+_Italian_: rapporto di parallelismo
+
 **Unattended time**:
 Agent time with no overlapping human time, for example a night run or a long run that nobody follows.
 _Italian_: tempo non supervisionato
@@ -302,8 +302,8 @@ _Italian_: base della dimensione
 ## Data
 
 **Source**:
-A place or a writer that records activity: a native log, a hook, a telemetry stream, an imported file, or the ledger
-itself for the events that its commands write.
+A place or a writer that records activity: a native log, a hook, an imported file, or the ledger itself for the
+events that its commands write.
 _Italian_: sorgente
 
 **Native log**:
@@ -348,7 +348,7 @@ _Italian_: identificativo nativo
 **Event identifier**:
 The identifier of an event within its session: the native identifier when the source gives one, otherwise the
 identifier that the adapter makes from the kind, the timestamp, and the position of the record.
-_Italian_: identificatore dell'evento
+_Italian_: identificativo dell'evento
 
 **Complete event**:
 An event that no later record of its source can change; only complete events enter the store.
@@ -410,12 +410,8 @@ The extra copy of a file that a file-sync service keeps when two machines change
 person merges it by hand.
 _Italian_: copia di conflitto
 
-**Pseudonym**:
-The name that stands for a person in a team export, kept in the person configuration.
-_Italian_: pseudonimo
-
 **Person configuration**:
-The settings and rules that a person owns, such as the time-zone history, identity rules, and hourly rates: one file
+The settings and rules that a person owns, such as the time-zone history and identity rules: one file
 in the store folder, so that every machine of the person reads the same values.
 _Italian_: configurazione personale
 _Avoid_: settings file, preferences, profile
@@ -430,11 +426,6 @@ The folder of one machine, outside every store, that holds its machine configura
 remembers of its ingestions.
 _Italian_: cartella dati della macchina
 
-**Project configuration**:
-The rules that a project shares in its repository, such as identity rules on that repository; they apply only to
-events of the repository identity of that repository.
-_Italian_: configurazione di progetto
-
 **Scheduled ingestion**:
 An ingestion that a scheduler of the operating system starts every day, from an entry that setup or the command
 `schedule create` creates with the consent of the person.
@@ -444,6 +435,12 @@ _Italian_: acquisizione pianificata
 The steps with which the ledger starts on a machine: the machine configuration, the person configuration when the store
 folder has none, and the scheduled ingestion with the consent of the person.
 _Italian_: configurazione iniziale
+
+**Argument**:
+A word that a command line gives a command after the command's name: an option, with its value when it takes one, or
+a positional value such as the day of `timesheet`.
+_Italian_: argomento
+_Avoid_: parameter (of the command line; a report parameter is a value that a report uses)
 
 **Declared event**:
 An event that a person writes through a command and that declares an attribution or a value: a manual entry, a
@@ -502,8 +499,8 @@ remove it, so the folder of a session can disappear while its repository stays.
 _Italian_: worktree
 
 **Identity rule**:
-A rule of the person configuration or of a project configuration that resolves events to a project from their
-repository identity, folder, branch, and date.
+A rule of the person configuration that resolves events to a project from their repository identity, folder, branch,
+and date.
 _Italian_: regola di identità
 
 **Configuration error**:
@@ -528,17 +525,8 @@ The value that names a work item of a project for good: declared events store it
 is separate, can change, and is the identifier when the person configuration gives none.
 _Italian_: identificativo dell'unità di lavoro
 
-**Release**:
-A published version of the deliverable of a project.
-_Italian_: rilascio
-_Avoid_: version, stable point, punto stabile
-
-**Milestone**:
-A planned point in the schedule of a project, independent of releases.
-_Italian_: milestone
-
 **Attribution**:
-The assignment of an event to a project, a work item, a release, a milestone, and other dimensions.
+The assignment of an event to a project, a work item, and other dimensions.
 _Italian_: attribuzione
 
 **Split rule**:
@@ -585,6 +573,11 @@ A dated list of prices per provider and model, for each token category, request 
 _Italian_: listino
 _Avoid_: rate card, tariff
 
+**Provider table**:
+The dated list that gives the provider of a model from its exact identifier; rows that ship with the program and rows of
+the person, with validity intervals; it follows the same layers as the price table.
+_Italian_: tabella dei fornitori
+
 **List-price cost**:
 The token usage multiplied by the price table that applies on the date of use.
 _Italian_: costo a listino
@@ -606,18 +599,6 @@ _Italian_: costo ripartito
 **Billing period**:
 The interval that one charge of a cost source covers, such as one month of a subscription.
 _Italian_: periodo di fatturazione
-
-**Hourly rate**:
-The cost of one hour of human time of a person, valid from a date.
-_Italian_: tariffa oraria
-
-**Person cost**:
-Human time multiplied by the hourly rate of the person.
-_Italian_: costo persona
-
-**Cost centre**:
-An organizational unit to which effort and cost are charged, independent of projects.
-_Italian_: centro di costo
 
 ## Reporting and estimation
 
@@ -643,10 +624,6 @@ The record of the human time of a person per day and per project.
 _Italian_: registro attività
 _Avoid_: report, log
 
-**Team export**:
-An aggregate of the effort of one person, without content, that the person reviews before sharing it.
-_Italian_: export di team
-
 **Estimate**:
 A forecast of the human time, agent time, and cost of a work item, recorded before the work starts.
 _Italian_: stima
@@ -666,8 +643,8 @@ _Italian_: classe di riferimento
 ## Development
 
 **Benchmark**:
-A run of `tests/benchmark.py` that writes invented native logs and times the first ingestion and a daily timesheet of
-one month; a person runs it by hand before each release.
+A run of `tests/benchmark.py` that writes invented native logs and times the first ingestion, the daily timesheet of
+one month, the timesheet of one day, and the report of one day; a person runs it by hand before each release.
 _Italian_: benchmark
 
 **Scenario**:

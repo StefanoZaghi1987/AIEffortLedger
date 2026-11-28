@@ -1,0 +1,12 @@
+2026-11-20  Measured day
+Project  Work item  Measured  With manual entries  Declared  Inferred human share  Inferred agent share
+Alpha                   0:01                 0:01                            0.00                  0.00
+Total                   0:01                 0:01
+
+Unknown invocation share  0.00
+
+Human time at idle gaps
+Idle gap  Human time
+0:05            0:01
+0:10            0:01
+0:15            0:01

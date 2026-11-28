@@ -34,7 +34,9 @@ Matching); a category rule such as `mcp__*` → `other` stops the warnings for a
 
 Each adapter reads the folders of native logs that the machine configuration lists for each of its agent tools: setup
 writes there the folders that each agent tool uses on the machine, and the person can add more
-([command-line.md](command-line.md) › Setup). The ledger has these adapters:
+([command-line.md](command-line.md) › Setup). When two folders that the machine configuration records for one agent
+tool hold the same session identifier, the ledger reads the session in the first of the two folders and skips the
+reading of the later folder, with a warning that names both folders and the session. The ledger has these adapters:
 
 | Adapter (`source`) | Sources | Specification | Phase |
 |---|---|---|---|
@@ -100,8 +102,9 @@ therefore runs:
 Setup shows the scheduled task and creates it only when the person agrees, and only in a scheduler that keeps each task
 as its own entry: the Task Scheduler on Windows, a launchd agent on macOS, or a systemd user timer on Linux. The task is
 an entry of the ledger, so the ledger changes nothing that another program owns, and a command removes it. Where only
-cron exists, whose table of the person is one shared file, setup shows the line to add. When the person does not agree,
-or the run cannot ask, such as a first run from a hook, setup only shows the task.
+cron exists, whose table of the person is one shared file, setup shows the line to add. The line writes every `%` of
+the installed command's path as `\%`, which cronie strips back to the percent before the shell runs the line. When
+the person does not agree, or the run cannot ask, such as a first run from a hook, setup only shows the task.
 
 The entry of the scheduled ingestion has the name `ai-effort-ledger-ingest`, by which `schedule show` and
 `schedule remove` find it. It runs the absolute path of the installed command `ai-effort-ledger` with
@@ -135,17 +138,17 @@ git directory, and reads the remote URL from its `config`, or the root commit fr
 exists.
 
 The remote is the first one in the list of preferred remote names of the person configuration (`["origin"]` by default)
-that the repository has, otherwise the first remote in the order of the names. Its URL becomes a repository identity in
-these steps: for a URL with a scheme (such as `https://` or `ssh://`), remove the scheme, the user information with any
-password or token, and the port; for an address without a scheme (`user@host:path`), remove the user and write
-`host:path` as `host/path`; remove a final `/`, then a final `.git`; write all in lower case. No credential reaches the
-store. When the SSH URL and the HTTPS URL of a repository differ only in these parts, the two clones have one repository
-identity. When a host writes them with different paths, an identity rule joins the two identities. The lower case also
-gives one repository identity to two repositories of one host whose paths differ only in case; a host that serves them
-as two needs an identity rule on the branch or the folder of the two clones. The ledger reads only
-the `config` file of the common git directory, without its `include` files and without `insteadOf` rewrites. A remote
-that is a local folder or a `file://` URL is not used, because its path names folders of the machine; the ledger takes
-the next remote, or the root commit.
+that the repository has, otherwise the first remote in the alphabetical order of the names, as text. Its URL becomes a
+repository identity in these steps: for a URL with a scheme (such as `https://` or `ssh://`), remove the scheme, the user
+information with any password or token, and the port; for an address without a scheme (`user@host:path`), remove the
+user and write `host:path` as `host/path`; remove a final `/`, then a final `.git`; write all in lower case. No
+credential reaches the store. When the SSH URL and the HTTPS URL of a repository differ only in these parts, the two
+clones have one repository identity. When a host writes them with different paths, an identity rule joins the two
+identities. The lower case also gives one repository identity to two repositories of one host whose paths differ only in
+case; a host that serves them as two needs an identity rule on the branch or the folder of the two clones. The ledger
+reads only the `config` file of the common git directory, without its `include` files and without `insteadOf` rewrites.
+A remote that is a local folder or a `file://` URL is not used, because its path names folders of the machine; the
+ledger takes the next remote, or the root commit.
 
 The root commit is the commit that the ledger reaches from `HEAD`, resolved through the reference files and
 `packed-refs`, by following the first parent of each commit until a commit has no parent. The ledger reads each commit
@@ -175,6 +178,7 @@ through identity rules ([configuration.md](configuration.md)); otherwise their e
   nearest existing parent folder (ADR 0018) still covers other worktrees. To specify at the start of Phase 3.
 - How an adapter recognizes sessions that an orchestrator drives, and the session that started them: the native log
   of Claude Code shows no known sign. To specify with a real sample.
-- Whether one adapter reads events that other programs (agent tools, orchestrators, converters written by a member of a
-  team) write directly in the form of [event-schema.md](event-schema.md), and how it rejects fields outside the schema,
-  so that a new agent tool needs no adapter inside the ledger. To specify at the start of Phase 3.
+- What setup shows the person where only cron exists: the sentences above say setup shows the line to add and name the
+  escape the line holds, while no output of Phase 1 renders the line itself — the setup text and the `schedule` text and
+  JSON document render the entry model, whose command holds the bare install path, and nothing reads the cron line back.
+  To rule: an output shows the escaped line, or the sentences name the model.

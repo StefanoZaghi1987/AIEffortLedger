@@ -1,0 +1,2 @@
+{"type":"queue-operation","operation":"enqueue","content":"Add a test for the mosswell corner.","timestamp":"2026-11-19T08:30:00.125Z","version":"2.1.0","sessionId":"cccccccc-cccc-5ccc-9ccc-cccccccccccc","cwd":"D:\\Work\\Product"}
+{"type":"queue-operation","operation":"enqueue","content":"Also cover the mosswell edge.","timestamp":"2026-11-19T08:30:00.125Z","version":"2.1.0","sessionId":"cccccccc-cccc-5ccc-9ccc-cccccccccccc","cwd":"D:\\Work\\Product"}

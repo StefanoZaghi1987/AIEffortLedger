@@ -1,0 +1,2 @@
+macchina: machine-one
+etichetta della macchina: Invented label of the machine.

@@ -1,0 +1,9 @@
+usage: ai-effort-ledger version [--store FOLDER] [--json] [--language {en,it}] [-h]
+
+show the version of the ledger and of tzdata
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

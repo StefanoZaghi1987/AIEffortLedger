@@ -1,0 +1,18 @@
+Parameters
+idle_gap 0:10 default
+minimum_attention 0:01 default
+stale_limit 4:00 default
+headless_prompts false default
+timesheet_granularity 0:15 default
+language en default
+settle_time 4:00 default
+preferred_remotes ["origin"] default
+Entries
+time_zone zone=Etc/UTC from=1970-01-01T00:00:00Z person
+day_start hour=00:00 from=1970-01-01 person
+project id=alpha name=Alpha person
+project id=beta name=Beta person
+work_item project=alpha id=story-1 name=Story One person
+work_item project=beta id=story-2 name=Story Two person
+identity_rule project=alpha repository=example.com/acme/alpha person
+identity_rule project=beta repository=example.com/acme/beta person

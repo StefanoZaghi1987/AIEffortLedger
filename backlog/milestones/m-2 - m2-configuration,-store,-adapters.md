@@ -5,4 +5,4 @@ title: "M2 Configuration, store, adapters"
 
 ## Description
 
-configuration, store, survey of native logs (gate G2), Claude Code adapter. Plan Tasks 12-24.
+configuration, store, the survey script of the native logs, Claude Code adapter. Plan Tasks 12-15 and 17-24.

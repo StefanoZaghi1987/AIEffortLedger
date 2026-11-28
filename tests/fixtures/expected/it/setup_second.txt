@@ -1,0 +1,17 @@
+macchina: 00000000-0000-4000-8000-000000000001
+cartella dell'archivio: <root>/store
+creato: no
+conservazione
+claude-code cleanupPeriodDays 30
+claude-desktop desktopSessionCleanupPeriodDays nessuna
+Gli eventi di un log nativo che lo strumento agentico elimina durante un intervallo più lungo fra due acquisizioni vanno persi, e un'eliminazione definitiva che nomina una versione corretta riporta solo gli eventi il cui log nativo esiste ancora.
+Si consiglia un periodo di conservazione più lungo: cambiare l'impostazione accanto a ogni strumento agentico. Il suo costo: il log nativo conserva più a lungo sul disco il testo di prompt, risposte e codice.
+acquisizione pianificata:
+nome: ai-effort-ledger-ingest
+comando: <root>/tools/ai-effort-ledger ingest --store <root>/store
+ora: 12:00
+acquisizione
+sorgente: claude-code-jsonl
+cartella: <root>/logs
+eventi nuovi: 0
+sessioni trattenute: 0

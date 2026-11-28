@@ -82,10 +82,6 @@ derives them.
 | `purged_sessions` | for purges with a corrected version | The sessions that hold the purged keys, each as `tool` and `session_id`, so that every machine knows which sessions to read again (ADR 0015) |
 | `corrected_version` | optional for purges, never with reason `forget` | Writer version from which new copies of the purged keys are accepted (ADR 0015) |
 | `labels` | no | Attribution hints from the allow-list of label keys in the person configuration (Phase 2) |
-| `session_title` | no | Title of the session, only when the person configuration allows titles (Phase 2) |
-
-The pseudonym of the person is in the person configuration ([configuration.md](configuration.md)), not a field of each
-event; a team export adds it.
 
 No field holds the text of prompts, responses, tool input, or code, or the paths of files in tool input (ADR 0003,
 ADR 0012). Adapters drop that text while they read.
@@ -193,8 +189,30 @@ version of the ledger exist, asks to update the ledger, and completes with the e
 
 ## To be confirmed
 
+- What the reading writes for the shared events of a fork pair: "the shared events belong to it" names the
+  original, while each file of the session stamps its own `session_id` on the copies of the record, and "an event
+  already in the store keeps its session" protects what a previous ingestion stored. The adapter rules that a
+  fresh reading of both sessions writes the shared event with the `session_id` of the original — the original's
+  own copy of the record when it holds one, otherwise the moved copy with its `session_id` rewritten — so no
+  duplicate event keys are left to the store merge inside one reading; "keeps its session" governs re-ingestion
+  of what is already stored, which the index of the previous readings decides. The label `forked_from` goes on
+  the kept events of the fork at or after the fork instant only. To confirm with a real sample.
 - Whether a fork made with `/branch` has the structure of a fork made with `--fork-session`
   ([fork-2026-11.md](../research/fork-2026-11.md)); the changelog says that `/branch` writes a pointer, and no `/branch`
   session is tested yet. To specify with a real sample.
 - Which source has precedence for each kind when two sources record the same session (for example hooks for human
   signals, native logs for token usage). To specify with the first source other than native logs (Phase 3).
+- How far the reading's broken-line check of this document's Encoding table reaches: `decode_line` reads every typed
+  column of the table the table's way and marks a line that fails broken, and holds five shapes out. It checks
+  `machine` as text alone — every store that the tests build carries invented machine identifiers that are no UUID
+  texts, which a check of the table's "random UUID (version 4) text" would mark broken in every event of every
+  fixture. It checks `event_uid` of an event that a command writes — the table's same row as `machine` — at no
+  level: the reader's gate holds no `event_uid` entry, so an identifier in another shape, such as a whole number, is
+  stored as an event and stops the key order with a raw traceback, the order comparing every part as text.
+  `repo_hint`'s two ruled shapes (`host/path`, `root-commit:` and the hash) reduce to a text check in the gate. It
+  checks the table's shapes alone, not the contents that only the Fields table rules, so a purge whose
+  `purged_sessions` item holds no `tool` or no `session_id`, and a confirmation whose entry holds no `duration`, are
+  stored as events and stop a purge or a report with a raw traceback. It reads an instant with one anchored regex, so
+  a text of the right shape that no calendar holds, such as a 30th of February, is stored as an event and stops the
+  winning copy at the parse of the instant. Whether the check grows to these too, or the table's shapes alone are the
+  gate. To rule.

@@ -1,0 +1,15 @@
+usage: ai-effort-ledger setup [--store FOLDER] [--json] [--language {en,it}] [-h] [--label TEXT]
+                              [--schedule {yes,no}] [--native-logs TOOL=FOLDER] [--time HOUR]
+
+prepare the ledger on a machine
+
+options:
+  --store FOLDER             use another store folder for this command only
+  --json                     write the result as one JSON document
+  --language {en,it}         the language of the output
+  -h, --help                 show this help message and exit
+  --label TEXT               the label of the machine
+  --schedule {yes,no}        yes: create the scheduled ingestion without asking; no: never
+                             create it
+  --native-logs TOOL=FOLDER  a folder of native logs of an agent tool, as tool=folder
+  --time HOUR                the time of day of the scheduled ingestion

@@ -1,0 +1,3 @@
+2026-06-15  Events
+Event identifier  Kind          Timestamp                 Actor  Day         Duration  Ingested at               Machine                               Note      Project                 Schema version  Source  Writer version
+uid-one           manual_entry  2026-06-15T09:00:00.000Z  human  2026-06-15      1:00  2026-06-15T09:00:05.000Z  3f0d5a1e-8c2b-4d6e-9f0a-1b2c3d4e5f60  Workshop  example.org/team/alpha               1  ledger  0.1.0

@@ -1,0 +1,6 @@
+2026-11-23  giorno dichiarato
+progetto  unità di lavoro  misurato  con registrazioni manuali  dichiarato  quota umana dedotta  quota agente dedotta
+Alpha                          0:01                       0:01        0:15                 0.00                  0.00
+totale                         0:01                                   0:15
+
+quota di avvio non nota  0.00

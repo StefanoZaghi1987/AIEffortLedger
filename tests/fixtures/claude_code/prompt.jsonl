@@ -1,0 +1,1 @@
+{"type": "user", "uuid": "3f1c0000-0000-4000-8000-000000000001", "timestamp": "2026-03-01T09:15:00.000Z", "version": "2.1.0", "sessionId": "11111111-1111-5111-9111-111111111111", "gitBranch": "main", "entrypoint": "cli", "cwd": "D:\\Work\\Product", "origin": {"kind": "human"}, "message": {"role": "user", "content": "Summarize the bramblewick module."}}

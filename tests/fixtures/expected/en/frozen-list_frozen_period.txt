@@ -1,0 +1,3 @@
+Frozen reports
+Id                                    Report            From        To          Note                                 Machine                 Frozen at
+10000000-0000-4000-8000-000000000001  report timesheet  2026-11-20  2026-11-21  Invented note of the frozen report.  Invented office laptop  2026-11-24T12:00:00.000Z

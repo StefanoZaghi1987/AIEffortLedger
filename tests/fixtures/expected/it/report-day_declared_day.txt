@@ -1,0 +1,16 @@
+2026-11-23  giorno dichiarato
+
+persona
+tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività
+0:01                   0:20                      1.00            0:00          0:01            0:00                0:20      0:00       23:39
+
+progetti
+progetto  tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività  quota umana dedotta  quota agente dedotta
+Alpha              0:01          0:20                      1.00            0:00          0:01            0:00                0:20      0:00                             0.00                  0.00
+
+unità di lavoro
+unità di lavoro  tempo persona  tempo agente  rapporto di parallelismo  tempo bloccato  solo persona  supervisionato  non supervisionato  bloccato  inattività  quota umana dedotta  quota agente dedotta
+
+Le classi di attività dei progetti e delle unità di lavoro non sempre si sommano a quelle della persona.
+
+quota di avvio non nota  0.00

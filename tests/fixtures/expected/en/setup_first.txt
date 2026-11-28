@@ -1,0 +1,21 @@
+Machine: 00000000-0000-4000-8000-000000000001
+Store folder: <root>/store
+Created: yes
+Person configuration: <root>/store/configuration.toml
+Entries
+time_zone zone=Etc/UTC from=1970-01-01T00:00:00Z
+day_start hour=00:00 from=1970-01-01
+Retention
+claude-code cleanupPeriodDays 30
+claude-desktop desktopSessionCleanupPeriodDays none
+Events of a native log that a longer gap in ingestion lets the agent tool delete are lost, and a purge that names a corrected version brings back only events whose native log still exists.
+A longer retention period is advised: change the setting beside each agent tool. Its cost: the native log keeps the text of prompts, responses, and code on the disk for longer.
+Scheduled ingestion:
+Name: ai-effort-ledger-ingest
+Command: <root>/tools/ai-effort-ledger ingest --store <root>/store
+Hour: 12:00
+Ingestion
+Source: claude-code-jsonl
+Folder: <root>/logs
+New events: 1
+Sessions held back: 0

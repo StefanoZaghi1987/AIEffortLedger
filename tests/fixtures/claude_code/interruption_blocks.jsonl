@@ -1,0 +1,1 @@
+{"type":"user","uuid":"9a1b0000-0000-4000-8000-0000000000a1","timestamp":"2026-11-19T12:50:00.000Z","version":"2.1.0","sessionId":"9a1b9a1b-9a1b-5a1b-9a1b-9a1b9a1b9a1b","gitBranch":"main","entrypoint":"cli","cwd":"D:\\Work\\Product","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user while the dovengate step ran."}]}}

@@ -1,0 +1,4 @@
+acquisizione pianificata:
+nome: ai-effort-ledger-ingest
+comando: <root>/tools/ai-effort-ledger ingest --store <root>/store
+ora: 12:00

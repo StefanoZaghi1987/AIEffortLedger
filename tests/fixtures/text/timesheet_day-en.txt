@@ -1,0 +1,18 @@
+2026-06-15  Measured day
+Project       Work item    Measured  With manual entries  Declared  Inferred human share  Inferred agent share  Proposed
+Alpha         Feature 142      1:00                 1:06                            0.50                  0.25      1:15
+Alpha                          0:56                 0:50                            0.00                  0.00      0:45
+Unattributed                   0:00                 0:03                            0.00                  0.00      0:00
+Total                          1:56                 2:00
+
+Agent time  1:26
+Parallel ratio  1.00
+Presence span  7:46
+
+Unknown invocation share  0.25
+
+Human time at idle gaps
+Idle gap  Human time
+0:05            1:55
+0:10            1:50
+0:15            1:45

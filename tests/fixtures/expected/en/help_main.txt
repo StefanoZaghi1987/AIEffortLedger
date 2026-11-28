@@ -1,0 +1,28 @@
+usage: ai-effort-ledger <command> [<subcommand>] [options]
+
+Measure the human time and the agent time of a person from the native logs of the agent tools.
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit
+
+commands:
+  <command>
+    setup             prepare the ledger on a machine
+    schedule          show, create, or remove the scheduled ingestion
+    ingest            run an ingestion
+    machine           the label of the machine in its store metadata
+    config            show the configurations, or append an entry to the person configuration
+    sessions          list the sessions of a local day
+    annotate          write an annotation
+    entry             write a manual entry
+    timesheet         show the timesheet of a day, or confirm or retract it
+    entries           list the declared events of a local day
+    retract           retract an event by its event identifier
+    purge             remove events from the store
+    report            the reports of the ledger
+    frozen            the frozen reports
+    index             the local index of the store
+    version           show the version of the ledger and of tzdata

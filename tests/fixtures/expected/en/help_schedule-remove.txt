@@ -1,0 +1,9 @@
+usage: ai-effort-ledger schedule remove [--store FOLDER] [--json] [--language {en,it}] [-h]
+
+remove the scheduled ingestion
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

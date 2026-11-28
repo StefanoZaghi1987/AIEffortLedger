@@ -1,0 +1,9 @@
+usage: ai-effort-ledger index rebuild [--store FOLDER] [--json] [--language {en,it}] [-h]
+
+build the local index again from the segments
+
+options:
+  --store FOLDER      use another store folder for this command only
+  --json              write the result as one JSON document
+  --language {en,it}  the language of the output
+  -h, --help          show this help message and exit

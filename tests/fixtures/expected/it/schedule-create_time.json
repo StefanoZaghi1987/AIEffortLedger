@@ -1,0 +1,1 @@
+{"schedule": {"name": "ai-effort-ledger-ingest", "command": "<root>/tools/ai-effort-ledger ingest --store <root>/store", "time": "06:30"}, "command": "schedule create", "warnings": [], "configuration_errors": []}

@@ -1,9 +1,10 @@
 ---
 id: TASK-53
 title: 'Task 53: cli — purges'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-22 11:38'
+updated_date: '2026-11-27 12:06'
 labels: []
 milestone: m-8
 dependencies: []
@@ -25,5 +26,11 @@ Execute Task 53 of docs/plans/phase-1-implementation.md exactly as written: its 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every step checkbox of the plan task is checked and its named tests pass
-- [ ] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
+- [x] #2 The full suite and python -I tests/style.py pass at the checkpoint commit
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+cli — purges (the purge action in entry_actions.py), built on stream/cli. Checkpoint commit feeca77 (suite 584 tests OK, style 0) plus fix 755c9d2 (keys and warnings before the consent question); re-review clean. Evidence: task-53-report.md, task-53-review-1.md, task-53-review-2.md.
+<!-- SECTION:FINAL_SUMMARY:END -->

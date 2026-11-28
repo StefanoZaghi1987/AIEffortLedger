@@ -9,10 +9,9 @@ Each fact lives with its owner.
 
 | Layer | Owner | Location | Content |
 |---|---|---|---|
-| Defaults of the ledger | the ledger | the program | price tables, the table of tool categories of each adapter, the table that converts Windows time-zone names to IANA time zones, default values of parameters |
+| Defaults of the ledger | the ledger | the program | price tables and the provider table, the table of tool categories of each adapter, the table that converts Windows time-zone names to IANA time zones, default values of parameters |
 | Machine configuration | the machine | the machine-local data folder (see [ingestion.md](ingestion.md) › Store) | machine identifier, salted hash of the installation identifier, location of the store, folders of native logs for each agent tool |
-| Person configuration | the person | `configuration.toml` in the store folder (ADR 0017) | pseudonym, time-zone history, day start hours, names of projects, identity rules, category rules, names of preferred remotes, settle time, allow-list of label keys, consent for session titles, defaults of report parameters, hourly rates, cost sources |
-| Project configuration | the project | `.ai-effort-ledger.toml` at the root of its repository | identity rules on its own repository identity (Phase 4) |
+| Person configuration | the person | `configuration.toml` in the store folder (ADR 0017) | time-zone history, day start hours, names of projects, identity rules, category rules, names of preferred remotes, settle time, allow-list of label keys, defaults of report parameters, cost sources, the price rows and the provider rows (Phase 2) |
 
 The location of the store is the local user data folder of the operating system unless the machine configuration gives
 another folder (ADR 0003); the default store folder of each operating system is in [architecture.md](architecture.md) ›
@@ -44,8 +43,15 @@ entry of an array of tables:
 | `[[identity_rule]]` | `repository`, `folder`, `branch`, `from`, `to`, `project` | the conditions it matches, at least one: a repository identity, an absolute folder, a pattern of branch names, and the first and last local day; and the project identifier it gives |
 | `[[category_rule]]` | `tool`, `category` | the pattern of tool names it matches and the tool category it gives |
 | `[[label_key]]` | `key` | one key that the `labels` field of an event can hold (Phase 2) |
-| `[[hourly_rate]]` | `amount`, `currency`, `from` | an amount, a currency, and the date from which it is valid (Phase 2) |
 | `[[cost_source]]` | `name`, `type` | a cost source and its type (Phase 2) |
+| `[[price]]` | `provider`, `model`, `currency`, `from`, and one key for each token category, request type, or value of a price factor that it prices | the prices of one model of a provider, per million tokens or per request (Phase 2) |
+| `[[model_provider]]` | `model`, `provider`, `from` | a model identifier and the provider that serves it (Phase 2) |
+
+A row of the person wins over the row that ships with the program for the same provider, model, and key, while the row
+of the person is valid; outside its interval the row of the program applies again. The provider table gives the provider
+of a model from its exact identifier, and a row of the person wins over a row that ships with the program while it is
+valid; a model identifier served by two providers in different periods is expressed by the intervals of its rows. The
+report names every model identifier in use with no provider, as it names every model with no price.
 
 A dated value — an instant, a local date, or an hour — is either a TOML value of its type, such as
 `2026-12-01T00:00:00Z` or `04:00:00`, or a basic string in the form of [command-line.md](command-line.md) › Form, such
@@ -57,11 +63,12 @@ Single values are keys outside these entries:
 |---|---|---|
 | `preferred_remotes` | `["origin"]` | names of preferred remotes ([ingestion.md](ingestion.md) › Repository identity) |
 | `settle_time` | `"4h"` | the settle time ([ingestion.md](ingestion.md) › Adapters) |
-| `session_titles` | `false` | the consent for session titles (Phase 2) |
-| `pseudonym` | none | the pseudonym of the person (Phase 4) |
 | `[report]` table | defaults of the ledger | defaults of report parameters, one key for each: `idle_gap`, `minimum_attention`, `stale_limit`, `headless_prompts`, `timesheet_granularity`, `language`; `first_day_of_week` (Phase 2) |
 
-Keys and entries of a later phase are valid in any version of the ledger and have no effect before their phase. A
+The key `language` of the `[report]` table is `en` or `it`, as the option `--language`.
+The reader accepts only the entries and the single values that this section names, with the keys of the `[report]`
+table; any other entry or key makes the file unreadable with the line of the key. Keys and entries of a later phase
+are valid in any version of the ledger and have no effect before their phase. A
 duration is a text of whole numbers with the units `h`, `min`, and `s`, such as `"4h"`, `"10min"`, or `"1h30min"`. For
 example, a journey adds this entry to the time-zone history:
 
@@ -121,8 +128,8 @@ identity rule of a configuration matches, so it never makes a configuration erro
 The command line changes the person configuration only by appending entries at the end of the file. Each appended value
 is written as a TOML basic string: the ledger writes the value between double quotes and escapes double quotes,
 backslashes, and control characters, so a value can never add, change, or remove an entry. Before it appends, it checks
-each value: a time zone that `tzdata` holds, an hour as `HH:MM`, a tool category of the event schema, a duration in the
-format above, and an instant or a day in the format
+each value: a time zone that `tzdata` holds, an hour as `HH:MM`, a tool category of the event schema, and an instant
+or a day in the format
 of [command-line.md](command-line.md) › Form; a wrong value stops the command with the exit code for wrong use. After
 each append, it reads the whole file again; when the read fails, it restores the earlier content and reports the error.
 It never writes the file again as a whole, so the comments and the layout of the person stay. The person changes single
@@ -136,10 +143,15 @@ that holds the time zone of the operating system and one `[[day_start]]` entry w
 1970 (`1970-01-01T00:00:00Z` and `1970-01-01`), so that native logs older than the first run have local days. It shows
 the entries and the file in which the person changes them.
 
-Linux and macOS give an IANA time zone. Windows gives a Windows time-zone name, the value `TimeZoneKeyName` of the
-registry, which the ledger reads with `winreg` and converts with a table made from the CLDR `windowsZones` list and held
-in the program as data. When the table has no conversion for the name, the ledger writes no `[[time_zone]]` entry, and
-every report stops with an error that asks for the time zone; the ledger never guesses a time zone.
+Linux and macOS give an IANA time zone: the `TZ` variable of the environment when `tzdata` holds the zone that it names,
+else the target of the localtime link; a `TZ` of another shape — a POSIX TZ string or a path — names no zone, and gives
+none, as an unknown Windows name gives none below. Windows gives a Windows time-zone name, the value `TimeZoneKeyName` of
+the registry, which the ledger reads with `winreg` and converts with a table cut from the territory `001` rows of the
+`windowsZones` file of CLDR release 49 (tag `release-49`, 2026-10-22) and held in the program as data. When the table
+has no conversion for the name, the ledger writes no `[[time_zone]]` entry, and every report stops with an error that
+asks for the time zone; the ledger never guesses a time zone. A refresh of the table re-cuts the rows of a later CLDR
+data release by the procedure that `docs/research/windows-zones-2026-11.md` records, and the test that opens every
+zone value of the table with `zoneinfo` gates it; dot releases of CLDR have not touched the `windowsZones` file.
 
 Setup writes the machine configuration as a whole, also when it creates a new machine identifier, sets another location
 of the store, or records folders of native logs. Its keys and the types of their values are fixed
@@ -148,22 +160,4 @@ of the store, or records folders of native logs. Its keys and the types of their
 A configuration file that the ledger cannot read stops every command that needs it, with the line of the error; the
 ledger never uses part of a file.
 
-## Project configuration
-
-A project configuration applies only to events whose repository identity is the repository identity of its own
-repository. A rule in it that matches another repository identity, or a folder, is a configuration error: the ledger
-ignores the rule and the report shows the error, so that a repository taken from a source cannot change the attribution
-of other work. Rules on local folders stay in the person configuration (ADR 0009). The ledger only reads the file and
-never runs git to get it (ADR 0004); reading TOML runs no code.
-
 ## To be confirmed
-
-- Which copy of a project configuration applies: the folder from which the ledger reads it, when it reads it (ingestion
-  or report), how a change of the file over time applies, and how a report records it. To specify at the start of
-  Phase 4.
-- Whether a rule of the person configuration overrides a rule of a project configuration of equal specificity, or the
-  two are a configuration error as within one layer (ADR 0009). To specify at the start of Phase 4.
-- Which other shared content a project configuration holds, such as milestones, releases, and price tables, which
-  ADR 0003 allows in a project repository. To specify with the phase that introduces each content.
-- Which release of the CLDR `windowsZones` list the table of Windows time-zone names is built from, and how an update of
-  the table reaches a release. To specify before the end of Phase 1.

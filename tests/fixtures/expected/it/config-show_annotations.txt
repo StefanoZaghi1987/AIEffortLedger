@@ -1,0 +1,18 @@
+parametri
+idle_gap 0:10 predefinito
+minimum_attention 0:01 predefinito
+stale_limit 4:00 predefinito
+headless_prompts false predefinito
+timesheet_granularity 0:15 predefinito
+language it opzione
+settle_time 4:00 predefinito
+preferred_remotes ["origin"] predefinito
+voci
+time_zone zone=Etc/UTC from=1970-01-01T00:00:00Z persona
+day_start hour=00:00 from=1970-01-01 persona
+project id=alpha name=Alpha persona
+project id=beta name=Beta persona
+work_item project=alpha id=story-1 name=Story One persona
+work_item project=beta id=story-2 name=Story Two persona
+identity_rule project=alpha repository=example.com/acme/alpha persona
+identity_rule project=beta repository=example.com/acme/beta persona

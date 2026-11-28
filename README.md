@@ -4,15 +4,93 @@ Measure the effort of software work that you do fully or partly with AI agents �
 the data for estimating new work.
 
 The ledger separates **human time** (your attention) from **agent time** (agents executing work, which adds up when
-agents run in parallel) and from **calendar time**. It attributes effort to projects, work items, releases, and
-milestones, accepts manual entries, timesheet entries, and declared usage for work that no tool records, and computes
-list-price and actual cost at report time. It is independent of the agent tool, the model provider, and the operating
-system, and it works for one person or a team.
+agents run in parallel) and from **calendar time**. It attributes effort to projects and work items, accepts manual
+entries for work that no source recorded, and proposes a daily timesheet from measured values that you confirm. From
+Phase 2 it also accepts declared usage, computes cost at report time (the list-price cost of a model, the actual
+cost that a cost source gives, and the allocated cost of a subscription), and reads the labels that annotations set.
+It is independent of the agent tool, the model provider, and the operating system, and it
+works for one person.
 
 ## Status
 
-Phase 0 (specification, prototype, validation, review) is complete. Phase 1 is in specification; there is no
-installable tool yet. The content of each phase is in [docs/spec/product.md](docs/spec/product.md).
+Phase 0 (specification, prototype, validation, review) is complete. Phase 1 — the core: the daily timesheet of one
+person, from Claude Code and Claude Desktop — is implemented. Phase 2 adds weekly, monthly, and custom period
+reports with calendar time, token usage, and list-price cost, then declared usage, actual cost and subscription
+division, and labels; then the maintenance of the price table, the dated price rows and the provider rows. Phase 3
+adds a Claude Code plugin with hooks and skills. Phase 4 adds estimation, from
+estimates recorded before the work starts and the actuals of completed work items. The first release is `v0.1.0`;
+publication on a package index is a later decision. The content of each phase is in
+[docs/spec/product.md](docs/spec/product.md).
+
+## Install
+
+The package needs Python 3.11 or later ([pyproject.toml](pyproject.toml)). Install the first release, `v0.1.0`, from
+this repository:
+
+```text
+uv tool install git+https://github.com/StefanoZaghi1987/AIEffortLedger.git@v0.1.0
+```
+
+or, with pipx:
+
+```text
+pipx install git+https://github.com/StefanoZaghi1987/AIEffortLedger.git@v0.1.0
+```
+
+## Use
+
+Prepare the ledger on a machine: `setup` records the folders of the native logs of the agent tools present on the
+machine, sets the store folder (`--store`, or the default store folder), writes the person configuration when the
+store has none, and runs the first ingestion; with `--schedule yes` it also creates the scheduled ingestion, a daily
+ingestion at the time of `--time` (12:00 by default).
+
+```text
+ai-effort-ledger setup --store D:\Work\Store --schedule yes
+```
+
+The daily timesheet: `timesheet <day>` shows the timesheet proposal of a measured day — the human time per project,
+work item, and unattributed time — and `timesheet confirm <day>` writes the timesheet confirmation.
+
+```text
+ai-effort-ledger timesheet today
+ai-effort-ledger timesheet confirm today
+```
+
+The report of a period shows, for each day, the state of the day (measured or declared), its total human time, and
+the human time of each project, work item, and the unattributed time:
+
+```text
+ai-effort-ledger report timesheet --from 2026-11-01 --to 2026-11-30
+```
+
+Every command takes `--language en|it`, the language of the output. The scheduled ingestion is removed with:
+
+```text
+ai-effort-ledger schedule remove
+```
+
+Every command, option, output, and exit code is in [docs/spec/command-line.md](docs/spec/command-line.md).
+
+## Remove
+
+Run `ai-effort-ledger schedule remove` first: removing the package removes neither the entry of the scheduled
+ingestion nor the folders of the machine. Then uninstall the package:
+
+```text
+uv tool uninstall ai-effort-ledger
+```
+
+or, with pipx:
+
+```text
+pipx uninstall ai-effort-ledger
+```
+
+The store folder — `%LOCALAPPDATA%\ai-effort-ledger\store` on Windows, `$XDG_DATA_HOME/ai-effort-ledger/store` on
+Linux, `~/Library/Application Support/ai-effort-ledger/store` on macOS, or the folder that `setup --store` gave —
+and the machine-local data folder — `%LOCALAPPDATA%\ai-effort-ledger\machine` on Windows,
+`$XDG_STATE_HOME/ai-effort-ledger/machine` on Linux, `~/Library/Application Support/ai-effort-ledger/machine` on
+macOS — stay; delete them by hand.
 
 ## Documents
 

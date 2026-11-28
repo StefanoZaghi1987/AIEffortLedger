@@ -1,0 +1,9 @@
+uso: ai-effort-ledger config show [--store CARTELLA] [--json] [--language {en,it}] [-h]
+
+mostrare i parametri e i dati datati con il livello che dà ciascuno
+
+opzioni:
+  --store CARTELLA    usare un'altra cartella dell'archivio solo per questo comando
+  --json              scrivere il risultato come un documento JSON
+  --language {en,it}  la lingua dell'output
+  -h, --help          mostra questo aiuto ed esce
